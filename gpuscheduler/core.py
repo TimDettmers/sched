@@ -8,18 +8,20 @@ import uuid
 import operator
 import datetime
 import shutil
+import time
 
 from queue import Queue
 from bs4 import BeautifulSoup
 from os.path import join
 from aenum import Enum
 
-MEM_THRESHOLD_AVAILABLE = 1100
-UTILIZARTION_THERESHOLD_AVAILABLE = 30
+MEM_THRESHOLD_AVAILABLE = 300
+UTILIZARTION_THERESHOLD_AVAILABLE = 5
 
 class HostState(Enum):
     unknown = 0
     available = 1
+    error = 2
 
 class GPUStatus(Enum):
     unknown = 0
@@ -56,8 +58,9 @@ gpu_name2performance_class['GeForce GTX 1080 Ti'] = 3
 
 
 class GPUWorker(threading.Thread):
-    def __init__(self, config_folder, logdir, host_name, host_config, device_id, job, idx):
+    def __init__(self, scheduler, config_folder, logdir, host_name, host_config, device_id, job, idx):
         super(GPUWorker, self).__init__()
+        self.scheduler = scheduler
         self.isDaemon = False
         self.job = job
         self.idx = idx
@@ -66,20 +69,29 @@ class GPUWorker(threading.Thread):
         self.host_name = host_name
         self.logdir = logdir
         self.init_dir = config_folder
+        self.prefix = '{0}.{1}'.format(host_name, device_id)
 
     def construct_init_file(self):
         if not os.path.exists('/tmp/gpuscheduler'): os.mkdir('/tmp/gpuscheduler')
         if not os.path.exists(join('/tmp/gpuscheduler', str(self.idx))): os.mkdir(join('/tmp/gpuscheduler', str(self.idx)))
 
-        print('Constructing init file...')
+        print('{0}: Constructing init file...'.format(self.prefix))
         init_path = join('/tmp/gpuscheduler/', str(self.idx), 'init_{0}.sh'.format(self.idx))
         shutil.copyfile(join(self.init_dir, 'init.sh'), init_path)
+        if self.cfg['conda_env'] != 'base':
+            new_env = "sed -i 's/base/{0}/g' {1}".format(self.cfg['conda_env'], init_path)
+            print('{0}: Executing change in conda env variable...'.format(self.prefix))
+            execute(new_env)
+        if self.cfg['conda_path'] != 'anaconda3':
+            new_env = "sed -i 's/anaconda3/{0}/g' {1}".format(self.cfg['conda_path'], init_path)
+            print('{0}: Executing change in conda path variable...'.format(self.prefix))
+            execute(new_env)
         with open(init_path, 'a') as f:
             work_dir = join(self.cfg['GIT_HOME'], self.job['work_dir'])
             f.write('cd {0}\n'.format(work_dir))
             f.write('CUDA_VISIBLE_DEVICES={0} {1}\n'.format(self.device_id, self.job['cmd']))
         cmd = 'scp {0} {1}:~/'.format(init_path, self.host_name)
-        print('Transfering init file')
+        print('{0}: Transfering init file...'.format(self.prefix))
         execute(cmd)
 
 
@@ -91,7 +103,8 @@ class GPUWorker(threading.Thread):
         print('Executing on {0}:{1}...'.format(self.host_name, self.device_id))
         out, err = cmd_over_ssh(self.host_name, 'init_{0}.sh'.format(self.idx))
         if len(err) > 0:
-            print('ERROR: {0}'.format(err))
+            print('{1}: ERROR: {0}'.format(err, self.prefix))
+            self.scheduler.host2config[self.host_name]['status'] = HostState.error
         else:
             group, subgroup, name = self.job['group'], self.job['subgroup'], self.job['name']
             if not os.path.exists(self.logdir): os.mkdir(self.logdir)
@@ -99,6 +112,7 @@ class GPUWorker(threading.Thread):
             if not os.path.exists(join(self.logdir, group, subgroup)): os.mkdir(join(self.logdir, group, subgroup))
             if not os.path.exists(join(self.logdir, group, subgroup, name)): os.mkdir(join(self.logdir, group, subgroup, name))
             file_path = join(self.logdir, group, subgroup, name, str(uuid.uuid4()) + '.log')
+            print('{0}: Finish task successfully! Writing data to {1}...'.format(self.prefix, file_path))
             with open(file_path, 'w') as f:
                 f.write(out)
 
@@ -133,6 +147,8 @@ class Scheduler(object):
                 name = row['ssh name']
                 host2config[name] = {}
                 host2config[name]['GIT_HOME'] = row['git path']
+                host2config[name]['conda_env'] = row['conda env']
+                host2config[name]['conda_path'] = row['conda path']
                 host2config[name]['priority'] = int(row['priority'])
                 host2config[name]['max_usage'] = int(row['max gpu usage'])
                 host2config[name]['min_free'] = int(row['min free gpus'])
@@ -241,6 +257,7 @@ class Scheduler(object):
         host_data = self.host_data.sort_values(by=['priority'], ascending=False)
         for idx, host in host_data.iterrows():
             name = host['ssh name']
+            if self.host2config[name]['status'] == HostState.error: continue
             gpus = self.host2config[name]['gpus']
             num_available = self.host2config[name]['num_available']
             ids = []
@@ -258,18 +275,25 @@ class Scheduler(object):
 
     def run_jobs(self, logdir):
         gpus_available = self.get_total_available()
-        priority_list = self.get_gpu_priority_list()
 
         while self.queue.qsize() > 0:
             workers = []
+            priority_list = self.get_gpu_priority_list()
             for i in range(min(gpus_available, self.queue.qsize())):
                 host, device_id = priority_list[i]
                 job = self.queue.get()
-                workers.append(GPUWorker(self.config_folder, logdir, host, self.host2config[host], device_id, job, i))
+                workers.append(GPUWorker(self, self.config_folder, logdir, host, self.host2config[host], device_id, job, i))
 
             for worker in workers:
+                time.sleep(2)
                 worker.start()
-            for worker in workers:
-                worker.join()
-            gpus_available = self.get_total_available()
+
+            time.sleep(60*5) # wait for 5 minutes
+            if self.queue.qsize() > 0:
+                self.poll_gpu_status()
+                gpus_available = self.get_total_available()
+            else:
+                for worker in workers:
+                    worker.join()
+
 
