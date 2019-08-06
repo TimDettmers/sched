@@ -106,12 +106,15 @@ class GPUWorker(threading.Thread):
             print('{1}: ERROR: {0}'.format(err, self.prefix))
             self.scheduler.host2config[self.host_name]['status'] = HostState.error
         else:
-            group, subgroup, name = self.job['group'], self.job['subgroup'], self.job['name']
             if not os.path.exists(self.logdir): os.mkdir(self.logdir)
-            if not os.path.exists(join(self.logdir, group)): os.mkdir(join(self.logdir, group))
-            if not os.path.exists(join(self.logdir, group, subgroup)): os.mkdir(join(self.logdir, group, subgroup))
-            if not os.path.exists(join(self.logdir, group, subgroup, name)): os.mkdir(join(self.logdir, group, subgroup, name))
-            file_path = join(self.logdir, group, subgroup, name, str(uuid.uuid4()) + '.log')
+            path = self.job['path']
+            path = os.path.normpath(path)
+            paths = path.split(os.sep)
+            full_path = self.logdir
+            for p in paths:
+                full_path = join(full_path, p)
+                if not os.path.exists(full_path): os.mkdir(full_path)
+            file_path = join(self.logdir, path, str(uuid.uuid4()) + '.log')
             print('{0}: Finish task successfully! Writing data to {1}...'.format(self.prefix, file_path))
             with open(file_path, 'w') as f:
                 f.write(out)
@@ -231,20 +234,16 @@ class Scheduler(object):
         else:
             return GPUStatus.busy
 
-    def add_job(self, group, subgroup, name, work_dir, cmd, fp16=False, gpus=1):
+    def add_job(self, path, work_dir, cmd, fp16=False, gpus=1):
         """Adds a job to execute.
 
-        :group: The main folder.
-        :subgroup: The sub-folder.
-        :name: The log files name.
+        :path: Sub-folder path for the log file.
         :fp16: If the job requires 16-bit capabilities.
         :gpus: The number of GPUs required for the job.
 
         """
         job = {}
-        job['group'] = group
-        job['subgroup'] = subgroup
-        job['name'] = name
+        job['path'] = path
         job['work_dir'] = work_dir
         job['cmd'] = cmd
         job['fp16'] = fp16
@@ -288,8 +287,8 @@ class Scheduler(object):
                 time.sleep(2)
                 worker.start()
 
-            time.sleep(60*5) # wait for 5 minutes
             if self.queue.qsize() > 0:
+                time.sleep(60*5) # wait for 5 minutes
                 self.poll_gpu_status()
                 gpus_available = self.get_total_available()
             else:
