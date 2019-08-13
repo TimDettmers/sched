@@ -60,7 +60,7 @@ gpu_name2performance_class['GeForce GTX 1080 Ti'] = 3
 
 
 class GPUWorker(threading.Thread):
-    def __init__(self, scheduler, config_folder, logdir, host_name, host_config, device_id, job, idx):
+    def __init__(self, scheduler, config_folder, logdir, host_name, host_config, device_id, job, idx, cmds):
         super(GPUWorker, self).__init__()
         self.scheduler = scheduler
         self.isDaemon = False
@@ -72,6 +72,7 @@ class GPUWorker(threading.Thread):
         self.logdir = logdir
         self.init_dir = config_folder
         self.prefix = '{0}.{1}'.format(host_name, device_id)
+        self.additional_cmds = cmds
 
     def construct_init_file(self):
         if not os.path.exists('/tmp/gpuscheduler'): os.mkdir('/tmp/gpuscheduler')
@@ -91,14 +92,23 @@ class GPUWorker(threading.Thread):
         with open(init_path, 'a') as f:
             work_dir = join(self.cfg['GIT_HOME'], self.job['work_dir'])
             f.write('cd {0}\n'.format(work_dir))
+            for cmd in self.additional_cmds:
+                f.write('{0}\n'.format(cmd))
             f.write('CUDA_VISIBLE_DEVICES={0} {1}\n'.format(self.device_id, self.job['cmd']))
         time.sleep(1)
         cmd = 'scp {0} {1}:~/'.format(init_path, self.host_name)
         print('{0}: Transfering init file...'.format(self.prefix))
         execute(cmd)
-        time.sleep(1)
+        time.sleep(2)
 
 
+    def create_log_path(self, path):
+        path = os.path.normpath(path)
+        paths = path.split(os.sep)
+        full_path = self.logdir
+        for p in paths:
+            full_path = join(full_path, p)
+            if not os.path.exists(full_path): os.mkdir(full_path)
 
 
     def run(self):
@@ -108,24 +118,23 @@ class GPUWorker(threading.Thread):
         self.construct_init_file()
         print('Executing on {0}:{1}...'.format(self.host_name, self.device_id))
         out, err = cmd_over_ssh(self.host_name, 'init_{0}.sh'.format(self.idx))
+        log_name = str(uuid.uuid4()) + '.log'
         if len(err) > 0:
             print('{1}: ERROR: {0}'.format(err, self.prefix))
-            #self.scheduler.host2config[self.host_name]['status'] = HostState.error
-            file_path = join(self.logdir, 'errors', str(uuid.uuid4()) + '.log')
-            with open(file_path, 'w') as f:
+            err_file_path = join(self.logdir, 'errors', log_name)
+            with open(err_file_path, 'w') as f:
                 f.write(out)
+
+        path = self.job['path']
+        self.create_log_path(path)
+        file_path = join(self.logdir, path, log_name)
+        with open(file_path, 'w') as f:
+            f.write(out)
+
+        if len(err) > 0:
+            print('{0}: Finish task with errors! Writing stdout data to {1} and error to {2}...'.format(self.prefix, file_path, err_file_path))
         else:
-            path = self.job['path']
-            path = os.path.normpath(path)
-            paths = path.split(os.sep)
-            full_path = self.logdir
-            for p in paths:
-                full_path = join(full_path, p)
-                if not os.path.exists(full_path): os.mkdir(full_path)
-            file_path = join(self.logdir, path, str(uuid.uuid4()) + '.log')
             print('{0}: Finish task successfully! Writing data to {1}...'.format(self.prefix, file_path))
-            with open(file_path, 'w') as f:
-                f.write(out)
 
 
 
@@ -187,6 +196,9 @@ class Scheduler(object):
             if err != '':
                 self.host2config[host]['status'] = HostState.unknown
                 self.host2config[host]['num_available'] = 0
+                if self.verbose:
+                    print('Error in nvidia-smi call!')
+                    print(err)
                 continue
             gpus, num_available = self.parse_nvidia_smi(out, host)
             self.host2config[host]['gpus'] = gpus
@@ -201,6 +213,9 @@ class Scheduler(object):
         total_available = 0
         total_available_fp16 = 0
         for host, config in self.host2config.items():
+            if config['status'] != HostState.available:
+                print('Host {0} is down.'.format(host))
+                continue
             num_available = config['num_available']
             max_usage = config['max_usage']
             min_free = config['min_free']
@@ -276,23 +291,25 @@ class Scheduler(object):
         host_data = self.host_data.sort_values(by=['priority'], ascending=False)
         for idx, host in host_data.iterrows():
             name = host['ssh name']
-            if self.host2config[name]['status'] == HostState.error: continue
+            if self.host2config[name]['status'] != HostState.available: continue
             gpus = self.host2config[name]['gpus']
             num_available = self.host2config[name]['num_available']
             ids = []
             performance = []
+            fp16s = []
             for gpu in gpus:
                 if gpu['status'] != GPUStatus.available: continue
                 ids.append(gpu['device_id'])
                 performance.append(gpu['performance'])
+                fp16s.append(gpu['fp16'])
             if len(ids) == 0: continue
             performance, ids = zip(*sorted(zip(performance, ids), reverse=True))
-            for device_id in ids[:num_available]:
-                priority_list.append((name, device_id))
+            for device_id, fp16 in zip(ids[:num_available], fp16s[:num_available]):
+                priority_list.append((name, device_id, fp16))
         return priority_list
 
 
-    def run_jobs(self, logdir):
+    def run_jobs(self, logdir, cmds=[], add_fp16=False, host2cmd_adds={}):
         gpus_available = self.get_total_available()
 
         while self.queue.qsize() > 0:
@@ -300,22 +317,36 @@ class Scheduler(object):
             print('Total jobs left: {0}.'.format(self.queue.qsize()))
             print('Calculating priority list...')
             priority_list = self.get_gpu_priority_list()
+            print('{0}: Starting jobs...'.format(datetime.datetime.now()))
             for i in range(min(gpus_available, self.queue.qsize(), len(priority_list))):
-                host, device_id = priority_list[i]
+                host, device_id, fp16 = priority_list[i]
                 job = self.queue.get()
-                workers.append(GPUWorker(self, self.config_folder, logdir, host, self.host2config[host], device_id, job, i))
+                if add_fp16 and fp16:
+                    job['cmd'] += ' --fp16'
+                    print(job['cmd'])
+
+                if host in host2cmd_adds:
+                    job['cmd'] += host2cmd_adds[host]
+                    print(job['cmd'])
+
+                if job['fp16'] and not fp16:
+                    self.queue.put(job)
+                    continue
+                workers.append(GPUWorker(self, self.config_folder, logdir, host, self.host2config[host], device_id, job, i, cmds))
 
             for worker in workers:
                 time.sleep(2)
                 worker.start()
 
             if self.queue.qsize() > 0:
-                time.sleep(60) # wait for 5 minutes
+                time.sleep(60) # wait for 1 minutes
                 self.poll_gpu_status()
                 print('Getting total available...')
                 gpus_available = self.get_total_available()
             else:
                 for worker in workers:
+                    if self.verbose:
+                        print('Waiting for worker: {0}'.format(worker.idx))
                     worker.join()
 
 
