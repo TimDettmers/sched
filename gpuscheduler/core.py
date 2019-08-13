@@ -309,7 +309,7 @@ class Scheduler(object):
         return priority_list
 
 
-    def run_jobs(self, logdir, cmds=[], add_fp16=False, host2cmd_adds={}):
+    def run_jobs(self, logdir, cmds=[], add_fp16=False, host2cmd_adds={}, remap={}):
         gpus_available = self.get_total_available()
 
         while self.queue.qsize() > 0:
@@ -320,6 +320,8 @@ class Scheduler(object):
             print('{0}: Starting jobs...'.format(datetime.datetime.now()))
             for i in range(min(gpus_available, self.queue.qsize(), len(priority_list))):
                 host, device_id, fp16 = priority_list[i]
+                if (host, device_id) in remap:
+                    device_id = remap[(host, device_id)]
                 job = self.queue.get()
                 if add_fp16 and fp16:
                     job['cmd'] += ' --fp16'
