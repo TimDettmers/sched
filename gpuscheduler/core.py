@@ -9,6 +9,7 @@ import operator
 import datetime
 import shutil
 import time
+import numpy as np
 
 from queue import Queue
 from bs4 import BeautifulSoup
@@ -264,6 +265,10 @@ class Scheduler(object):
         """Determines is a GPU is available for the queue."""
         mem_threshold = self.host2config[host]['mem_threshold']
         util_threshold = self.host2config[host]['util_threshold']
+        if self.verbose:
+            print('device {0} on host {1} has {2} mem and {3} util -> status {4}'.format(
+                gpu['device_id'], host, gpu['used_mem'], gpu['utilization'],
+                gpu['used_mem'] < mem_threshold and gpu['utilization'] < util_threshold))
         if gpu['used_mem'] < mem_threshold and gpu['utilization'] < util_threshold:
             return GPUStatus.available
         else:
@@ -325,11 +330,9 @@ class Scheduler(object):
                 job = self.queue.get()
                 if add_fp16 and fp16:
                     job['cmd'] += ' --fp16'
-                    print(job['cmd'])
 
                 if host in host2cmd_adds:
                     job['cmd'] += host2cmd_adds[host]
-                    print(job['cmd'])
 
                 if job['fp16'] and not fp16:
                     self.queue.put(job)
@@ -341,7 +344,7 @@ class Scheduler(object):
                 worker.start()
 
             if self.queue.qsize() > 0:
-                time.sleep(60) # wait for 1 minutes
+                time.sleep(5*60 + np.random.randint(5, 50)) # wait for 5 minutes + some random amount of time
                 self.poll_gpu_status()
                 print('Getting total available...')
                 gpus_available = self.get_total_available()
