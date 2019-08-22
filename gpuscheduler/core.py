@@ -92,6 +92,7 @@ class GPUWorker(threading.Thread):
             execute(new_env)
         with open(init_path, 'a') as f:
             work_dir = join(self.cfg['GIT_HOME'], self.job['work_dir'])
+            f.write('export GIT_HOME={0}'.format(self.cfg['GIT_HOME']))
             f.write('cd {0}\n'.format(work_dir))
             for cmd in self.additional_cmds:
                 f.write('{0}\n'.format(cmd))
@@ -172,7 +173,6 @@ class Scheduler(object):
                 host2config[name]['conda_env'] = row['conda env']
                 host2config[name]['conda_path'] = row['conda path']
                 host2config[name]['priority'] = int(row['priority'])
-                host2config[name]['max_usage'] = int(row['max gpu usage'])
                 host2config[name]['min_free'] = int(row['min free gpus'])
                 host2config[name]['status'] = HostState.unknown
                 host2config[name]['mem_threshold'] = MEM_THRESHOLD_AVAILABLE
@@ -218,18 +218,16 @@ class Scheduler(object):
                 print('Host {0} is down.'.format(host))
                 continue
             num_available = config['num_available']
-            max_usage = config['max_usage']
             min_free = config['min_free']
 
-            total_available += min(max_usage, num_available)
+            total_available += num_available
             total_fp16 = 0
             for gpu in config['gpus']:
                 if gpu['status'] == GPUStatus.available and gpu['fp16']:
                     total_fp16 += 1
-            avail_fp16 = min(min(max_usage, num_available), total_fp16)
+            avail_fp16 = min(num_available, total_fp16)
             total_available_fp16 += avail_fp16
-            print('Host: {0}. Available 16-bit: {2}. Total available {1}.'.format(host, min(max_usage, num_available), avail_fp16))
-
+            print('Host: {0}. Available 16-bit: {2}. Total available {1}.'.format(host, min(num_available, avail_fp16), num_available))
 
         print('A total of {0} GPUs are available on {1} total hosts.'.format(total_available, len(self.host2config)))
         print('Of these GPUs a total of {0} have 16-bit capability (tensor cores).'.format(total_available_fp16))
