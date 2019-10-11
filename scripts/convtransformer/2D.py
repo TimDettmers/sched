@@ -7,7 +7,8 @@ parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 args = parser.parse_args()
 
-s = gpuscheduler.Scheduler('/home/tim/data/git/sched/config/')
+#s = gpuscheduler.Scheduler('/home/tim/data/git/sched/config/')
+s = gpuscheduler.HyakScheduler('/gscratch/scrubbed/dettmers/git/sched/config/')
 
 s.update_host_config('home', mem_threshold=1700, util_threshold=30)
 s.update_host_config('office', mem_threshold=1700, util_threshold=25)
