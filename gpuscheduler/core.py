@@ -137,6 +137,60 @@ class GPUWorker(threading.Thread):
             print('{0}: Finish task successfully! Writing data to {1}...'.format(self.prefix, file_path))
 
 
+class HyakScheduler(object):
+    def __init__(self, config_folder, verbose=False):
+        self.jobs = []
+        self.verbose = verbose
+        self.config = {}
+
+    def init_with_config(self, config_folder):
+        with open(config_folder) as f:
+            for line in f:
+                name, value = line.split(' ')
+                self.config[name.strip()] = value.strip()
+
+
+
+    def add_job(self, path, work_dir, cmd, time_hours, fp16=False, gpus=1, mem=64, cores=8):
+        self.jobs.append([path, work_dir, cmd, fp16, gpus])
+
+    def run_jobs(self, logdir, cmds=[], add_fp16=False, host2cmd_adds={}, remap={}):
+        gpus_available = self.get_total_available()
+
+        for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores) in enumerate(jobs):
+            lines = []
+            logid = str(uuid.uuid4())
+            lines.append('!#/bin/bash')
+            lines.append('#')
+            lines.append('#SBATCH --job-name={0} {1}'.format(logdir, i))
+            lines.append('#SBATCH --account={0}'.format(self.config['account']))
+            lines.append('#SBATCH --partition={0}'.format(self.config['partition']))
+            lines.append('#')
+            lines.append('#SBATCH --nodes=1')
+            lines.append('#SBATCH --ntakes-per-node={0}'.format(cores))
+            lines.append('#SBATCH --time={0:02d}:00:00'.format(time_hours))
+            lines.append('#SBATCH --gres=gpu:{0}'.format(gpus))
+            lines.append('#SBATCH --mem={0}G'.format(mem))
+            lines.append('#')
+            lines.append('#SBATCH --output={0}'.format(join(logdir, logid + '.log')))
+            lines.append('#SBATCH -e={0}'.format(join(logdir, logid + '.err')))
+            lines.append('')
+            lines.append('export PATH=$PATH:{0}'.format(join(self.config['ANACONDA_HOME'], 'bin')))
+            lines.append(cmd)
+
+            with open('/tmp/init_{0}'.format(i), 'w') as f:
+                for line in lines:
+                    f.write('{0}\n'.format(line))
+
+            time.sleep(1)
+            out, err = execute_and_return('sbatch /tmp/init_{0}'.format(i))
+            if err != '':
+                print(err)
+            time.sleep(1)
+
+
+
+
 
 
 class Scheduler(object):

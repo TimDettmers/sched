@@ -13,7 +13,7 @@ s.update_host_config('home', mem_threshold=1700, util_threshold=30)
 s.update_host_config('office', mem_threshold=1700, util_threshold=25)
 #s.update_host_config('ari', mem_threshold=2500, util_threshold=25)
 
-cmd_raw = 'OMP_NUM_THREADS=1 python train.py --cuda --data ../data/wikitext-2/ --dataset wt103 --adaptive --n_layer 12 --dropatt 0.0 --optim adam --warmup_step 800 --tgt_len 150 --mem_len 150 --eval_tgt_len 150 --batch_size 32 --batch_chunk 1 --fp16 --dynamic-loss-scale --eval-interval 500 --work_dir=LM-TFM-wt103/gpu3/ --log-interval 10'
+cmd_raw = 'OMP_NUM_THREADS=1 python train.py --cuda --data ../data/wikitext-2/ --dataset wt103 --adaptive --n_layer 12 --dropatt 0.0 --optim adam --warmup_step 800 --tgt_len 150 --mem_len 150 --eval_tgt_len 150 --batch_size 32 --batch_chunk 1 --fp16 --dynamic-loss-scale --eval-interval 100 --work_dir=LM-TFM-wt103/SEED/ --log-interval 10'
 
 emb = 400
 model = 400
@@ -46,7 +46,7 @@ for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
 args3 = {}
-args3['max_step'] = [4000, 6000]
+args3['max_step'] = [150, 250]
 args3['lr'] = [0.0003, 0.0006]
 
 args_prod = []
@@ -57,14 +57,14 @@ for key, values in args3.items():
 args_prod = list(product(*args_prod))
 
 
-num_seeds = 4
+num_seeds = 2
 seed_offset = 0
 
 jobs = []
 for seed in range(num_seeds):
-    for key, value in args_prod:
+    for i, (key, value) in enumerate(args_prod):
         fp16 = False
-        jobs.append(['convtransformers/{0}/'.format(logfolder), 'convtransformer/pytorch/', cmd + ' {1} {2} --seed {0}'.format(seed, key, value), fp16])
+        jobs.append(['convtransformers/{0}/'.format(logfolder), 'convtransformer/pytorch/', cmd.replace('SEED', str(i)) + ' {1} {2} --seed {0}'.format(seed, key, value), fp16])
 
 print(jobs[0])
 print(len(jobs))
