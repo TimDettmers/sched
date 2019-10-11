@@ -82,18 +82,16 @@ class GPUWorker(threading.Thread):
         print('{0}: Constructing init file...'.format(self.prefix))
         init_path = join('/tmp/gpuscheduler/', str(self.idx), 'init_{0}.sh'.format(self.idx))
         shutil.copyfile(join(self.init_dir, 'init.sh'), init_path)
-        if self.cfg['conda_env'] != 'base':
-            new_env = "sed -i 's/base/{0}/g' {1}".format(self.cfg['conda_env'], init_path)
-            print('{0}: Executing change in conda env variable...'.format(self.prefix))
-            execute(new_env)
         if self.cfg['conda_path'] != 'anaconda3':
             new_env = "sed -i 's/anaconda3/{0}/g' {1}".format(self.cfg['conda_path'], init_path)
             print('{0}: Executing change in conda path variable...'.format(self.prefix))
             execute(new_env)
         with open(init_path, 'a') as f:
             work_dir = join(self.cfg['GIT_HOME'], self.job['work_dir'])
-            f.write('export GIT_HOME={0}'.format(self.cfg['GIT_HOME']))
+            f.write('export GIT_HOME={0}\n'.format(self.cfg['GIT_HOME']))
             f.write('cd {0}\n'.format(work_dir))
+            if self.cfg['conda_env'] != 'base':
+                f.write('conda activate {0}\n'.format(self.cfg['conda_env']))
             for cmd in self.additional_cmds:
                 f.write('{0}\n'.format(cmd))
             f.write('CUDA_VISIBLE_DEVICES={0} {1}\n'.format(self.device_id, self.job['cmd']))
@@ -342,10 +340,13 @@ class Scheduler(object):
                 worker.start()
 
             if self.queue.qsize() > 0:
-                time.sleep(5*60 + np.random.randint(5, 50)) # wait for 5 minutes + some random amount of time
-                self.poll_gpu_status()
-                print('Getting total available...')
-                gpus_available = self.get_total_available()
+                for i in range(5):
+                    time.sleep(60 + np.random.randint(1, 7)) # wait for 5 minutes + some random amount of time
+                    if self.queue.qsize() == 0: break
+                if self.queue.qsize() > 0:
+                    self.poll_gpu_status()
+                    print('Getting total available...')
+                    gpus_available = self.get_total_available()
             else:
                 for worker in workers:
                     if self.verbose:

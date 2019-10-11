@@ -6,7 +6,7 @@ parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 args = parser.parse_args()
 
-s = gpuscheduler.Scheduler('/home/tim/git/sched/config/')
+s = gpuscheduler.Scheduler('/home/tim/data/git/sched/config/')
 
 s.update_host_config('home', mem_threshold=1700, util_threshold=30)
 s.update_host_config('office', mem_threshold=1700, util_threshold=25)
@@ -48,7 +48,7 @@ seed_offset = 0
 
 jobs = []
 for seed in range(num_seeds):
-    fp16 = True
+    fp16 = False
     jobs.append(['convtransformers/maxout/', 'convtransformer/pytorch/', cmd, fp16])
 
 print(jobs[0])
