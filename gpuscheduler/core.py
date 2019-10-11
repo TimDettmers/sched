@@ -91,7 +91,7 @@ class GPUWorker(threading.Thread):
             f.write('export GIT_HOME={0}\n'.format(self.cfg['GIT_HOME']))
             f.write('cd {0}\n'.format(work_dir))
             if self.cfg['conda_env'] != 'base':
-                f.write('conda activate {0}\n'.format(self.cfg['conda_env']))
+                f.write('source activate {0}\n'.format(self.cfg['conda_env']))
             for cmd in self.additional_cmds:
                 f.write('{0}\n'.format(cmd))
             f.write('CUDA_VISIBLE_DEVICES={0} {1}\n'.format(self.device_id, self.job['cmd']))
@@ -336,7 +336,7 @@ class Scheduler(object):
                 workers.append(GPUWorker(self, self.config_folder, logdir, host, self.host2config[host], device_id, job, i, cmds))
 
             for worker in workers:
-                time.sleep(2)
+                time.sleep(5)
                 worker.start()
 
             if self.queue.qsize() > 0:

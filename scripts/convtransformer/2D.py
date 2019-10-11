@@ -46,7 +46,7 @@ for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
 args3 = {}
-args3['max_step'] = [100, 200]
+args3['max_step'] = [4000, 6000]
 args3['lr'] = [0.0003, 0.0006]
 
 args_prod = []
