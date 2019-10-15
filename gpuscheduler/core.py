@@ -155,7 +155,7 @@ class HyakScheduler(object):
 
 
 
-    def add_job(self, path, work_dir, cmd, time_hours, fp16=False, gpus=1, mem=64, cores=8):
+    def add_job(self, path, work_dir, cmd, time_hours, fp16=False, gpus=1, mem=16, cores=6):
         self.jobs.append([path, work_dir, cmd, time_hours, fp16, gpus, mem, cores])
         if self.verbose:
             print('#SBATCH --time={0:02d}:00:00'.format(time_hours))
@@ -172,21 +172,23 @@ class HyakScheduler(object):
             lines.append('#SBATCH --partition={0}'.format(self.config['partition']))
             lines.append('#')
             lines.append('#SBATCH --nodes=1')
-            lines.append('#SBATCH --ntasks-per-node={0}'.format(cores))
+            lines.append('#SBATCH --ntasks-per-node=1')
+            lines.append('#SBATCH --cpus-per-gpu=1')
+            lines.append('#SBATCH --cpus-per-task={0}'.format(cores))
             lines.append('#SBATCH --time={0:02d}:00:00'.format(time_hours))
             lines.append('#SBATCH --gres=gpu:{0}'.format(gpus))
             lines.append('#SBATCH --mem={0}G'.format(mem))
             lines.append('#')
             lines.append('#SBATCH --chdir={0}'.format(join(self.config['GIT_HOME'], work_dir)))
             lines.append('#SBATCH --output={0}'.format(join(log_path, logid + '.log')))
-            lines.append('#SBATCH -e={0}'.format(join(log_path, logid + '.err')))
-#SBATCH --chdir=/usr/lusers/dettmers/git/sparse_learning/imagenet/partially_dense 
+            lines.append('#SBATCH --error={0}'.format(join(log_path, logid + '.err')))
             lines.append('')
             lines.append('export PATH=$PATH:{0}'.format(join(self.config['ANACONDA_HOME'], 'bin')))
             lines.append(cmd)
 
             if not os.path.exists(log_path):
-                sutil.makedirs(log_path)
+                print('Creating {0}'.format(log_path))
+                os.makedirs(log_path, exist_ok=True)
 
 
             with open('/tmp/init_{0}.sh'.format(i), 'w') as f:

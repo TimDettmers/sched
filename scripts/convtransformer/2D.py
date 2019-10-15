@@ -1,6 +1,7 @@
 import itertools
 import gpuscheduler
 import argparse
+import os
 from itertools import product
 
 parser = argparse.ArgumentParser(description='Compute script.')
@@ -43,6 +44,7 @@ args2['dropout'] = 0.1
 args2['lr'] = 0.0006
 args2['max_step'] = 4000
 
+log_base = '/usr/lusers/dettmers/logs/'
 logfolder = 'conv1d'
 time_hours = 1
 
@@ -105,5 +107,5 @@ if args.dry:
     print('Jobs will be written to: {0}'.format(jobs[0][0]))
 
 if not args.dry:
-    s.run_jobs('/usr/luser/dettmers/logs/', cmds=cmds, add_fp16=True, host2cmd_adds=host2cmd, remap=remap)
+    s.run_jobs(log_base, cmds=cmds, add_fp16=True, host2cmd_adds=host2cmd, remap=remap)
 
