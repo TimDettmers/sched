@@ -5,10 +5,11 @@ from itertools import product
 
 parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
+parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
 
 #s = gpuscheduler.Scheduler('/home/tim/data/git/sched/config/')
-s = gpuscheduler.HyakScheduler('/gscratch/scrubbed/dettmers/git/sched/config/')
+s = gpuscheduler.HyakScheduler('/gscratch/scrubbed/dettmers/git/sched/config/', verbose=args.verbose)
 
 s.update_host_config('home', mem_threshold=1700, util_threshold=30)
 s.update_host_config('office', mem_threshold=1700, util_threshold=25)
@@ -28,10 +29,10 @@ cmd = cmd_raw.format(emb, model, heads, d_head, inner, dropout, lr)
 
 
 args2 = {}
-#args2['conv'] = ''
+args2['conv'] = ''
 #args2['dim2'] = ''
 #args2['shape2'] = 1
-#args2['kernel-size'] = 1
+args2['kernel-size'] = 1
 #args2['downsample-identity'] = ''
 args2['d_emb'] = 400
 args2['d_model'] = 400
@@ -39,33 +40,36 @@ args2['n_head'] = 10
 args2['d_head'] = 40
 args2['d_inner'] = 2000
 args2['dropout'] = 0.1
-#args2['lr'] = 0.0006
-#args2['max_step'] = 4000
-logfolder = 'base'
+args2['lr'] = 0.0006
+args2['max_step'] = 4000
+
+logfolder = 'conv1d'
+time_hours = 1
 
 for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
 args3 = {}
-args3['max_step'] = [150, 250]
-args3['lr'] = [0.0003, 0.0006]
+#args3['max_step'] = [4000, 6000]
+#args3['lr'] = [0.0003, 0.0006]
 
 args_prod = []
 for key, values in args3.items():
     keyvalues = [' --{0} {1}'.format(key, v) for v in values]
     args_prod.append(keyvalues)
 
-args_prod = list(product(*args_prod))
+if len(args_prod) >= 2:
+    args_prod = list(product(*args_prod))
 
-
-num_seeds = 2
+num_seeds = 4
 seed_offset = 0
 
 jobs = []
 for seed in range(num_seeds):
+    if len(args_prod) == 0: args_prod.append(('', ''))
     for i, (key, value) in enumerate(args_prod):
         fp16 = False
-        jobs.append(['convtransformers/{0}/'.format(logfolder), 'convtransformer/pytorch/', cmd.replace('SEED', str(i)) + ' {1} {2} --seed {0}'.format(seed, key, value), fp16])
+        jobs.append(['convtransformers/{0}/'.format(logfolder), 'convtransformer/pytorch/', cmd.replace('SEED', str(i)) + ' {1} {2} --seed {0}'.format(seed, key, value), time_hours, fp16])
 
 print(jobs[0])
 print(len(jobs))
@@ -101,5 +105,5 @@ if args.dry:
     print('Jobs will be written to: {0}'.format(jobs[0][0]))
 
 if not args.dry:
-    s.run_jobs('/home/tim/logs/', cmds=cmds, add_fp16=True, host2cmd_adds=host2cmd, remap=remap)
+    s.run_jobs('/usr/luser/dettmers/logs/', cmds=cmds, add_fp16=True, host2cmd_adds=host2cmd, remap=remap)
 
