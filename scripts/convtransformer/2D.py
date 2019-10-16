@@ -9,34 +9,25 @@ parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
 
-#s = gpuscheduler.Scheduler('/home/tim/data/git/sched/config/')
-s = gpuscheduler.HyakScheduler('/gscratch/scrubbed/dettmers/git/sched/config/', verbose=args.verbose)
+s = gpuscheduler.Scheduler('/home/tim/data/git/sched/config/')
+log_base = '/home/tim/logs/'
+#s = gpuscheduler.HyakScheduler('/gscratch/scrubbed/dettmers/git/sched/config/', verbose=args.verbose)
+#log_base = '/usr/lusers/dettmers/logs/'
 
 s.update_host_config('home', mem_threshold=1700, util_threshold=30)
 s.update_host_config('office', mem_threshold=1700, util_threshold=25)
 #s.update_host_config('ari', mem_threshold=2500, util_threshold=25)
 
-cmd_raw = 'OMP_NUM_THREADS=1 python train.py --cuda --data ../data/wikitext-2/ --dataset wt103 --adaptive --n_layer 12 --dropatt 0.0 --optim adam --tgt_len 150 --mem_len 150 --eval_tgt_len 150 --batch_size 32 --batch_chunk 1 --fp16 --dynamic-loss-scale --eval-interval 100 --work_dir=LM-TFM-wt103/ITER/ --log-interval 10'
-
-emb = 400
-model = 400
-heads = 10
-d_head = 40
-inner = 2000
-dropout = 0.1
-lr = 0.0006
-
-cmd = cmd_raw.format(emb, model, heads, d_head, inner, dropout, lr)
-
+cmd = 'OMP_NUM_THREADS=1 python train.py --cuda --data ../data/wikitext-2/ --dataset wt103 --adaptive --n_layer 12 --dropatt 0.0 --optim adam --tgt_len 150 --mem_len 150 --eval_tgt_len 150 --batch_size 32 --batch_chunk 1 --fp16 --dynamic-loss-scale --eval-interval 100 --work_dir=LM-TFM-wt103/ITER/ --log-interval 10'
 
 args2 = {}
 args2['conv'] = ''
 args2['dim2'] = ''
-args2['shape2'] = 1
+args2['shape2'] = 2
 args2['kernel-size'] = 1
-#args2['downsample-identity'] = ''
+args2['downsample-identity'] = ''
 args2['d_emb'] = 400
-args2['d_model'] = 400
+#args2['d_model'] = 400
 args2['n_head'] = 10
 args2['d_head'] = 40
 args2['d_inner'] = 2000
@@ -45,8 +36,7 @@ args2['lr'] = 0.0008
 args2['max_step'] = 2000
 args2['warmup_step'] = 100
 
-log_base = '/usr/lusers/dettmers/logs/'
-logfolder = 'convtransformers/{0}/'.format('base2d')
+logfolder = 'convtransformers/{0}/'.format('shape2')
 time_hours = 1
 
 cores_per_job = 2
@@ -55,7 +45,9 @@ for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
 args3 = {}
-args3[''] = ['downsample-identity', '']
+args3['d_model'] = [200, 400]
+args3['n_head'] = [5, 10]
+args3['d_head'] = [20, 40]
 
 args_prod = []
 for key, values in args3.items():
@@ -68,7 +60,10 @@ for key, values in args3.items():
 if len(args_prod) >= 2:
     args_prod = list(product(*args_prod))
 else:
-    args_prod = [[args_prod[0][0]], [args_prod[0][1]]]
+    new_args = []
+    for arg in args_prod[0]:
+        new_args.append([arg])
+    args_prod = new_args
 
 num_seeds = 2
 seed_offset = 0

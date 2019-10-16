@@ -337,7 +337,7 @@ class Scheduler(object):
         else:
             return GPUStatus.busy
 
-    def add_job(self, path, work_dir, cmd, fp16=False, gpus=1):
+    def add_job(self, path, work_dir, cmd, fp16=False, gpus=1, cores=None):
         """Adds a job to execute.
 
         :path: Sub-folder path for the log file.
