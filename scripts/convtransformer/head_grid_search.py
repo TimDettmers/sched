@@ -18,45 +18,48 @@ s.update_host_config('home', mem_threshold=1700, util_threshold=30)
 s.update_host_config('office', mem_threshold=1700, util_threshold=25)
 #s.update_host_config('ari', mem_threshold=2500, util_threshold=25)
 
-cmd = 'OMP_NUM_THREADS=1 python train.py --cuda --data ../data/wikitext-2/ --dataset wt103 --adaptive --n_layer 12 --dropatt 0.0 --optim adam --tgt_len 150 --mem_len 150 --eval_tgt_len 150 --fp16 --dynamic-loss-scale --eval-interval 100 --work_dir=LM-TFM-wt103/ITER/ --log-interval 10'
+cmd = 'OMP_NUM_THREADS=1 python train.py --cuda --data ../data/wikitext-2/ --dataset wt103 --adaptive --n_layer 12 --optim adam --tgt_len 150 --mem_len 150 --eval_tgt_len 150 --fp16 --dynamic-loss-scale --eval-interval 100 --work_dir=LM-TFM-wt103/ITER/ --log-interval 10'
 
 args2 = {}
-args2['conv'] = ''
+#args2['conv'] = ''
 #args2['dim2'] = ''
 #args2['shape2'] = 2
-args2['kernel-size'] = 3
+#args2['kernel-size'] = 3
 #args2['downsample-identity'] = ''
 args2['d_emb'] = 400
-args2['d_model'] = 400
+#args2['d_model'] = 400
 #args2['n_head'] = 10
-args2['d_head'] = 40
+#args2['d_head'] = 40
 args2['d_inner'] = 2000
-args2['dropout'] = 0.1
+#args2['dropout'] = 0.1
 args2['batch_chunk'] = 2
-#args2['batch_size'] = 32
+args2['batch_size'] = 32
+#args2['dropatt'] = 0.0
 #args2['use-batchnorm'] = ''
 #args2['lr'] = 0.0006
 #args2['max_step'] = 3000
 #args2['warmup_step'] = 100
 
-logfolder = 'convtransformers/{0}/'.format('kernelsize3_1d_grid6')
-time_hours = 1
-
-cores_per_job = 2
+logfolder = 'convtransformers/{0}/'.format('head_10_grid')
+time_hours = 4
+cores_per_job = 5
+num_seeds = 1
 
 for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
 args3 = {}
-#args3['d_model'] = [400]
+args3['d_model'] = [400, 600, 800]
 #args3['n_head'] = [5]
 #args3['d_head'] = [40]
-args3['lr'] = [0.0006]#, 0.000075, 0.0005]
-args3['max_step'] = [10, 20]
-args3['warmup_step'] = [200, 400, 600]
-args3['d_model'] = [400]
-args3['d_head'] = [10]
-args3['dropout'] = [0.2]
+args3['lr'] = [0.0005, 0.0006]
+args3['max_step'] = [6000]
+args3['warmup_step'] = [600]
+#args3['d_model'] = [400]
+args3['d_head'] = [40]
+args3['n_head'] = [10]
+args3['dropout'] = [0.1, 0.15, 0.2]
+args3['dropatt'] = [0.0, 0.05, 0.1]
 args3['batch_size'] = [32]
 #args3[''] = ['use-batchnorm', '']
 #args3['kernel-size'] = [3]
@@ -77,7 +80,6 @@ else:
         new_args.append([arg])
     args_prod = new_args
 
-num_seeds = 2
 seed_offset = 0
 
 jobs = []

@@ -173,7 +173,6 @@ class HyakScheduler(object):
             lines.append('#')
             lines.append('#SBATCH --nodes=1')
             lines.append('#SBATCH --ntasks-per-node=1')
-            lines.append('#SBATCH --cpus-per-gpu=1')
             lines.append('#SBATCH --cpus-per-task={0}'.format(cores))
             lines.append('#SBATCH --time={0:02d}:00:00'.format(time_hours))
             lines.append('#SBATCH --gres=gpu:{0}'.format(gpus))
@@ -195,11 +194,10 @@ class HyakScheduler(object):
                 for line in lines:
                     f.write('{0}\n'.format(line))
 
-            time.sleep(1)
+            time.sleep(0.5)
             out, err = execute_and_return('sbatch /tmp/init_{0}.sh'.format(i))
             if err != '':
                 print(err)
-            time.sleep(1)
 
 
 
