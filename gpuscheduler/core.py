@@ -138,17 +138,20 @@ class GPUWorker(threading.Thread):
 
 
 class HyakScheduler(object):
-    def __init__(self, config_folder, verbose=False):
+    def __init__(self, config_folder, verbose=False, account='cse', partition='cse-gpu'):
         self.jobs = []
         self.verbose = verbose
         self.config = {}
         self.init_with_config(config_folder)
+        self.config['account'] = account
+        self.config['partition'] = partition
 
     def init_with_config(self, config_folder):
         with open(join(config_folder, 'config.cfg')) as f:
             for line in f:
                 name, value = line.split(' ')
                 self.config[name.strip()] = value.strip()
+            
 
     def update_host_config(self, name, mem_threshold, util_threshold):
         pass
@@ -194,7 +197,7 @@ class HyakScheduler(object):
                 for line in lines:
                     f.write('{0}\n'.format(line))
 
-            time.sleep(0.5)
+            time.sleep(0.2)
             out, err = execute_and_return('sbatch /tmp/init_{0}.sh'.format(i))
             if err != '':
                 print(err)

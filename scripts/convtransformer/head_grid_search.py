@@ -40,7 +40,7 @@ args2['batch_size'] = 32
 #args2['max_step'] = 3000
 #args2['warmup_step'] = 100
 
-logfolder = 'convtransformers/{0}/'.format('head_10_grid')
+logfolder = 'convtransformers/{0}/'.format('head_40_grid2')
 time_hours = 4
 cores_per_job = 5
 num_seeds = 1
@@ -49,17 +49,17 @@ for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
 args3 = {}
-args3['d_model'] = [400, 600, 800]
+args3['d_model'] = [400]
 #args3['n_head'] = [5]
 #args3['d_head'] = [40]
-args3['lr'] = [0.0005, 0.0006]
+args3['lr'] = [0.0005]
 args3['max_step'] = [6000]
 args3['warmup_step'] = [600]
 #args3['d_model'] = [400]
-args3['d_head'] = [40]
-args3['n_head'] = [10]
-args3['dropout'] = [0.1, 0.15, 0.2]
-args3['dropatt'] = [0.0, 0.05, 0.1]
+args3['d_head'] = [10]
+args3['n_head'] = [40]
+args3['dropout'] = [0.15, 0.2]
+args3['dropatt'] = [0.1]
 args3['batch_size'] = [32]
 #args3[''] = ['use-batchnorm', '']
 #args3['kernel-size'] = [3]
