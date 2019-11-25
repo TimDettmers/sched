@@ -9,7 +9,6 @@ parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
-log_base = '/usr/lusers/dettmers/logs/'
 
 cmd = 'OMP_NUM_THREADS=1 python control-tasks/run_experiment.py'
 
@@ -30,7 +29,7 @@ args2 = {}
 #args2['task'] = 'edge'
 #args2['task'] = 'corrupted-edge'
 args2['rank'] = 10
-args2['epochs'] = 1
+args2['epochs'] = 20
 #args2['l2'] = 0.00
 #args2['momentum'] = 0.9
 #args2['optim'] = 'adam'
@@ -57,7 +56,12 @@ seed_offset = 0
 account = 'stf'
 #account = 'cse'
 
-s = gpuscheduler.HyakScheduler('/gscratch/cse/dettmers/git/sched/config/', verbose=args.verbose, account=account, partition=account + '-gpu')
+#log_base = '/usr/lusers/dettmers/logs/'
+#s = gpuscheduler.HyakScheduler('/gscratch/cse/dettmers/git/sched/config/', verbose=args.verbose, account=account, partition=account + '-gpu')
+
+log_base = '/home/tim/logs/'
+s = gpuscheduler.SshScheduler('/home/tim/data/git/sched/config/', verbose=args.verbose)
+s.update_host_config('office', mem_threshold=1700, util_threshold=25)
 
 for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
@@ -71,7 +75,7 @@ args3 = {}
 #args3['layer'] = [1,2]
 #args3['task'] = ['pos', 'corrupted-pos']
 #args3['task'] = ['pos', 'corrupted-pos', 'edge', 'corrupted-edge']
-args3['topk'] = [1024]
+args3['topk'] = [1024, 768, 512, 256, 128, 64, 32, 16, 8, 4, 2, 0]
 #args3['emb-train-path'] = random_weight_list
 #args3['scheduler'] = ['cosine', 'plateau']
 
@@ -124,5 +128,5 @@ if args.dry:
     print('Jobs will be run on: {0}'.format(account))
 
 if not args.dry:
-    s.run_jobs(log_base, add_fp16=True)
+    s.run_jobs(log_base, add_fp16=False)
 
