@@ -9,7 +9,10 @@ parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
+<<<<<<< HEAD
 log_base = '/gscratch/cse/dettmers/logs'
+=======
+>>>>>>> b1c47bffb288874fb1002dbcd4c2272d33ca0068
 
 cmd = 'OMP_NUM_THREADS=1 python control-tasks/run_experiment.py'
 
@@ -29,8 +32,13 @@ args2 = {}
 #args2['task'] = 'pos'
 #args2['task'] = 'edge'
 #args2['task'] = 'corrupted-edge'
+<<<<<<< HEAD
 #args2['rank'] = 1000
 #args2['epochs'] = 40
+=======
+args2['rank'] = 10
+args2['epochs'] = 20
+>>>>>>> b1c47bffb288874fb1002dbcd4c2272d33ca0068
 #args2['l2'] = 0.00
 #args2['momentum'] = 0.9
 args2['optim'] = 'adam'
@@ -59,7 +67,12 @@ mem_GB = 32
 #account = 'stf'
 account = 'cse'
 
-s = gpuscheduler.HyakScheduler('/gscratch/cse/dettmers/git/sched/config/', verbose=args.verbose, account=account, partition=account + '-gpu')
+#log_base = '/usr/lusers/dettmers/logs/'
+#s = gpuscheduler.HyakScheduler('/gscratch/cse/dettmers/git/sched/config/', verbose=args.verbose, account=account, partition=account + '-gpu')
+
+log_base = '/home/tim/logs/'
+s = gpuscheduler.SshScheduler('/home/tim/data/git/sched/config/', verbose=args.verbose)
+s.update_host_config('office', mem_threshold=1700, util_threshold=25)
 
 for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
@@ -149,5 +162,5 @@ if args.dry:
     print('Jobs will be run on: {0}'.format(account))
 
 if not args.dry:
-    s.run_jobs(log_base, add_fp16=True)
+    s.run_jobs(log_base, add_fp16=False)
 

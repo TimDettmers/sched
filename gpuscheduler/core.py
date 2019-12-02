@@ -207,7 +207,7 @@ class HyakScheduler(object):
 
 
 
-class Scheduler(object):
+class SshScheduler(object):
 
     """Execute tasks over ssh in the background."""
 
