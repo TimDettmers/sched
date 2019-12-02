@@ -5,6 +5,7 @@ import argparse
 import re
 import difflib
 from os.path import join
+import pandas as pd
 
 class bcolors:
     HEADER = '\033[95m'
@@ -34,7 +35,7 @@ seqm is a difflib.SequenceMatcher instance whose a & b are strings"""
             raise RuntimeError("unexpected opcode")
     return ''.join(output)
 
-parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+parser = argparse.ArgumentParser(description='Log file evaluator.')
 parser.add_argument('-f', '--folder-path', type=str, default=None, help='The folder to evaluate if running in folder mode.')
 parser.add_argument('-r', '--recursive', action='store_true', help='Apply folder-path mode to all sub-directories')
 parser.add_argument('--contains', type=str, default='', help='The line of the test metric must contain this string.')
@@ -48,10 +49,13 @@ parser.add_argument('--metric-gt', type=float, default=-float("inf"), help='Only
 parser.add_argument('--all', action='store_true', help='Prints all individual scores.')
 parser.add_argument('--name', action='store_true', help='Prints all scores and associated log file names')
 parser.add_argument('--partial', type=str, default='', help='Prints only configuration which at least have a partial match with the keywords (comma separates)')
-parser.add_argument('--namespaces', action='store_true', help='Prints all argparse arguments with differences.')
+parser.add_argument('--namespaces', action='store_true', help='Prints all argparse arguments.')
+parser.add_argument('--diff', action='store_true', help='Prints all argparse arguments with differences.')
+parser.add_argument('--csv', type=str, default='', help='Prints all argparse arguments with differences.')
 
 args = parser.parse_args()
 
+if args.diff: args.namespaces = True
 
 if args.recursive:
     folders = [x[0] for x in os.walk(args.folder_path)]
@@ -107,10 +111,11 @@ for folder in folders:
                             print(join(folder, log_name), float(matches[0]))
                         multimatch = True
 
-for n1 in namespaces:
-    for n2 in namespaces:
-        sm = difflib.SequenceMatcher(None, n1, n2)
-        print(show_diff(sm))
+if args.diff:
+    for n1 in namespaces:
+        for n2 in namespaces:
+            sm = difflib.SequenceMatcher(None, n1, n2)
+            print(show_diff(sm))
 
 if args.namespaces: exit()
 
@@ -136,6 +141,7 @@ if len(keys) > 0:
 for idx in order:
     keys = sorted(keys, key=lambda x: x[idx])
 
+pandas_data = []
 for group in keys:
     if any([v!=group[idx][1] for idx, v in filters.items()]): continue
     if args.partial != '':
@@ -161,12 +167,34 @@ for group in keys:
         conf95 = 1.96*se
         print('='*80)
         print('Summary for config {0}:'.format(group))
+        row = []
+        for key, value in group:
+            row.append(value)
+        row.append(m)
+        row.append(se)
+        row.append(m-conf95)
+        row.append(m+conf95)
+        row.append(len(data))
+        pandas_data.append(row)
+
         if len(data) == 1:
             print('Metric mean value (SE): {0:.3f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}'.format(m, m-float('NaN'), m+float('NaN'), len(data), float('NaN')))
         else:
             print('Metric mean value (SE): {0:.3f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}'.format(m, m-conf95, m+conf95, len(data), se))
         print('='*80)
-        print('')
         if args.all:
             for d in data:
                 print(d)
+
+if args.csv != '':
+    columns = []
+    for key, value in group:
+        columns.append(key)
+    columns.append('Mean')
+    columns.append('SE')
+    columns.append('CI lower')
+    columns.append('CI upper')
+    columns.append('n')
+    df = pd.DataFrame(pandas_data, columns=columns)
+    df.to_csv(args.csv)
+

@@ -9,7 +9,7 @@ parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
-log_base = '/usr/lusers/dettmers/logs/'
+log_base = '/gscratch/cse/dettmers/logs'
 
 cmd = 'OMP_NUM_THREADS=1 python control-tasks/run_experiment.py'
 
@@ -29,33 +29,35 @@ args2 = {}
 #args2['task'] = 'pos'
 #args2['task'] = 'edge'
 #args2['task'] = 'corrupted-edge'
-args2['rank'] = 10
-args2['epochs'] = 1
+#args2['rank'] = 1000
+#args2['epochs'] = 40
 #args2['l2'] = 0.00
 #args2['momentum'] = 0.9
-#args2['optim'] = 'adam'
-#args2['scheduler'] = 'cosine'
-args2['scheduler'] = 'none'
-args2['emb-train-path'] = './data/raw.train.elmo-layers.hdf5'
+args2['optim'] = 'adam'
+args2['scheduler'] = 'cosine'
+#args2['scheduler'] = 'none'
+#args2['emb-train-path'] = './data/raw.train.elmo-layers.hdf5'
+args2['emb-train-path'] = './data/raw.train.xavier-normal.elmo-layers.hdf5'
 #args2['emb-train-path'] = './data/raw.train.xavier-uniform.elmo-layers.hdf5'
 #args2['layer'] = 2
-#args2['lr'] = 0.01
+args2['lr'] = 0.001
 args2['patience'] = 50
 #args2['patience'] = 4
 args2['layernorm'] = ''
 args2['test'] = ''
 args2['random'] = ''
+args2['temp-path'] = '/gscratch/scrubbed/dettmers/'
 #args2['type'] = 'bilinear'
 #args2['type'] = 'linear'
 
-logfolder = 'probe/{0}/'.format('random_ELMo')
 time_hours = 2
 cores_per_job = 5
-num_seeds = 1
+num_seeds = 3
 seed_offset = 0
+mem_GB = 32
 
-account = 'stf'
-#account = 'cse'
+#account = 'stf'
+account = 'cse'
 
 s = gpuscheduler.HyakScheduler('/gscratch/cse/dettmers/git/sched/config/', verbose=args.verbose, account=account, partition=account + '-gpu')
 
@@ -63,23 +65,46 @@ for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
 args3 = {}
-#args3['lr'] = [0.03, 0.06, 0.09]
 #args3['epochs'] = [15, 40]
-#args3['epochs'] = [40, 100]
-#args3['lr'] = [0.006, 0.003]
+#args3['epochs'] = [15, 40, 100]
+#args3['lr'] = [0.0006, 0.003, 0.001]
 #args3['l2'] = [0.0, 0.01]
-#args3['layer'] = [1,2]
+args3['layer'] = [1,2]
 #args3['task'] = ['pos', 'corrupted-pos']
 #args3['task'] = ['pos', 'corrupted-pos', 'edge', 'corrupted-edge']
-args3['topk'] = [1024]
+args3['topk'] = [1024, 786, 512, 256, 128, 64, 32, 16, 8, 4, 2, 1, 0]
+#args3['topk'] = [8, 768, 0, 2, 1, 32, 64]
+#args3['topk'] = [768, 1024]
+#args3['topk'] = [1024, 768, 256, 128, 2]
+#args3['topk'] = [1024, 512, 128, 32, 16, 4, 2, 0]
+#args3['topk'] = [512]
+#args3['patience'] = [4, 50]
 #args3['emb-train-path'] = random_weight_list
-#args3['scheduler'] = ['cosine', 'plateau']
+#args3['scheduler'] = ['cosine', 'plateau', 'none']
 
+logfolder = 'probe_random/{0}/'.format('double_rand')
 args4 = []
-args4.append('--task pos --type linear')
-args4.append('--task corrupted-pos --type linear')
-args4.append('--task edge --type bilinear')
-args4.append('--task corrupted-edge --type bilinear')
+#args4.append('--task pos --type linear --epochs 40 --direct')
+#args4.append('--task corrupted-pos --type linear --epochs 40 --direct')
+# baseline
+args4.append('--task edge --type bilinear --epochs 15 --rank 1000')
+#args4.append('--task corrupted-edge --type bilinear --epochs 15 --rank 1000')
+#args4.append('--task pos --type linear --epochs 40 --rank 1000')
+#args4.append('--task corrupted-pos --type linear --epochs 40 --rank 1000')
+
+#args4.append('--task edge --type bilinear --rank 1000')
+#args4.append('--task corrupted-edge --type bilinear --rank 1000 --scheduler plateau --patience 4 --epochs 40 --lr 0.001')
+#args4.append('--task pos --type linear --rank 1000')
+#args4.append('--task corrupted-pos --type linear --rank 1000 --scheduler plateau --patience 4 --epochs 40 --lr 0.003')
+
+# control
+#args4.append('--task edge --type bilinear --epochs 15 --rank 1000 --l2 0.01')
+#args4.append('--task corrupted-edge --type bilinear --epochs 15 --rank 1000 --l2 0.01')
+#args4.append('--task pos --type linear --epochs 40 --rank 10')
+#args4.append('--task corrupted-pos --type linear --epochs 40 --rank 10')
+
+#args4.append('--task corrupted-edge --type bilinear --rank 1000 --scheduler plateau --patience 4 --epochs 40 --lr 0.001 --l2 0.01')
+#args4.append('--task corrupted-pos --type linear --rank 10 --scheduler plateau --patience 4 --epochs 40 --lr 0.003')
 
 args_prod = []
 for key, values in args3.items():
@@ -114,7 +139,7 @@ for seed in range(num_seeds):
                 job_cmd += ' {0}' .format(val)
             job_cmd += ' base_config.yaml'
             jobs.append(job_cmd)
-            s.add_job(logfolder, 'probe/', job_cmd, time_hours, fp16, cores=cores_per_job)
+            s.add_job(logfolder, 'probe/', job_cmd, time_hours, fp16, cores=cores_per_job, mem=mem_GB)
 
 if args.dry:
     for job in jobs:
