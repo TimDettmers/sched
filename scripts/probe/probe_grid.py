@@ -9,10 +9,6 @@ parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
-<<<<<<< HEAD
-log_base = '/gscratch/cse/dettmers/logs'
-=======
->>>>>>> b1c47bffb288874fb1002dbcd4c2272d33ca0068
 
 cmd = 'OMP_NUM_THREADS=1 python control-tasks/run_experiment.py'
 
@@ -32,13 +28,8 @@ args2 = {}
 #args2['task'] = 'pos'
 #args2['task'] = 'edge'
 #args2['task'] = 'corrupted-edge'
-<<<<<<< HEAD
 #args2['rank'] = 1000
 #args2['epochs'] = 40
-=======
-args2['rank'] = 10
-args2['epochs'] = 20
->>>>>>> b1c47bffb288874fb1002dbcd4c2272d33ca0068
 #args2['l2'] = 0.00
 #args2['momentum'] = 0.9
 args2['optim'] = 'adam'
@@ -60,19 +51,19 @@ args2['temp-path'] = '/gscratch/scrubbed/dettmers/'
 
 time_hours = 2
 cores_per_job = 5
-num_seeds = 3
+num_seeds = 16
 seed_offset = 0
 mem_GB = 32
 
 #account = 'stf'
 account = 'cse'
 
-#log_base = '/usr/lusers/dettmers/logs/'
-#s = gpuscheduler.HyakScheduler('/gscratch/cse/dettmers/git/sched/config/', verbose=args.verbose, account=account, partition=account + '-gpu')
+log_base = '/gscratch/cse/dettmers/logs'
+s = gpuscheduler.HyakScheduler('/gscratch/cse/dettmers/git/sched/config/', verbose=args.verbose, account=account, partition=account + '-gpu')
 
-log_base = '/home/tim/logs/'
-s = gpuscheduler.SshScheduler('/home/tim/data/git/sched/config/', verbose=args.verbose)
-s.update_host_config('office', mem_threshold=1700, util_threshold=25)
+#log_base = '/home/tim/logs/'
+#s = gpuscheduler.SshScheduler('/home/tim/data/git/sched/config/', verbose=args.verbose)
+#s.update_host_config('office', mem_threshold=1700, util_threshold=25)
 
 for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
@@ -85,12 +76,13 @@ args3 = {}
 args3['layer'] = [1,2]
 #args3['task'] = ['pos', 'corrupted-pos']
 #args3['task'] = ['pos', 'corrupted-pos', 'edge', 'corrupted-edge']
-args3['topk'] = [1024, 786, 512, 256, 128, 64, 32, 16, 8, 4, 2, 1, 0]
+#args3['topk'] = [1024, 768, 512, 256, 128, 64, 32, 16, 8, 4, 2, 1, 0]
+#args3['topk'] = [64, 32, 16, 8, 4, 2, 1, 0]
 #args3['topk'] = [8, 768, 0, 2, 1, 32, 64]
 #args3['topk'] = [768, 1024]
 #args3['topk'] = [1024, 768, 256, 128, 2]
 #args3['topk'] = [1024, 512, 128, 32, 16, 4, 2, 0]
-#args3['topk'] = [512]
+args3['topk'] = [32]
 #args3['patience'] = [4, 50]
 #args3['emb-train-path'] = random_weight_list
 #args3['scheduler'] = ['cosine', 'plateau', 'none']

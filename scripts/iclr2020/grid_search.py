@@ -9,34 +9,34 @@ parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
-log_base = '/usr/lusers/dettmers/logs/'
+log_base = '/usr/lusers/dettmers/data/logs/'
 
 cmd = 'OMP_NUM_THREADS=1 python main.py'
 
 args2 = {}
 args2['data'] = 'cifar'
-args2['decay_frequency'] = 75
+args2['decay_frequency'] = 30000
 args2['epochs'] = 250
 #args2['data'] = 'mnist'
 #args2['epochs'] = 100
 #args2['decay_frequency'] = 40
 args2['prune-rate'] = 0.2
 args2['fp16'] = ''
-args2['valid-split'] = 0.1
-args2['max-threads'] = 10
+args2['valid_split'] = 0.1
+args2['max-threads'] = 6
 args2['verbose'] = ''
-args2['growth'] = 'gradient'
-args2['redistribution'] = 'gradient'
+args2['growth'] = 'momentum'
+args2['redistribution'] = 'momentum'
 
 
-logfolder = 'iclr2020/{0}/'.format('grid1')
-time_hours = 12
-cores_per_job = 5
+logfolder = 'iclr2020/{0}/'.format('lr_grid')
+time_hours = 8
+cores_per_job = 3
 num_seeds = 1
-seed_offset = 8
+seed_offset = 4
 
-account = 'cse'
-#account = 'stf'
+#account = 'cse'
+account = 'stf'
 change_dir = 'sparse_learning/mnist_cifar/'
 
 s = gpuscheduler.HyakScheduler('/gscratch/cse/dettmers/git/sched/config/', verbose=args.verbose, account=account, partition=account + '-gpu')
@@ -46,7 +46,7 @@ for key, value in args2.items():
 
 args3 = {}
 args3['lr'] = [0.01, 0.03, 0.06, 0.1, 0.3, 0.6, 1.0]
-args3['batch-size'] = [64]
+args3['batch-size'] = [128]
 
 args4 = []
 args4.append('--model vgg-d --density 0.05')

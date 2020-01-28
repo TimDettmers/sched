@@ -158,7 +158,7 @@ class HyakScheduler(object):
 
 
 
-    def add_job(self, path, work_dir, cmd, time_hours, fp16=False, gpus=1, mem=16, cores=6):
+    def add_job(self, path, work_dir, cmd, time_hours, fp16=False, gpus=1, mem=32, cores=6):
         self.jobs.append([path, work_dir, cmd, time_hours, fp16, gpus, mem, cores])
         if self.verbose:
             print('#SBATCH --time={0:02d}:00:00'.format(time_hours))
@@ -197,7 +197,7 @@ class HyakScheduler(object):
                 for line in lines:
                     f.write('{0}\n'.format(line))
 
-            time.sleep(0.2)
+            time.sleep(0.05)
             out, err = execute_and_return('sbatch /tmp/init_{0}.sh'.format(i))
             if err != '':
                 print(err)

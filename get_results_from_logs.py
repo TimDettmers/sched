@@ -6,6 +6,7 @@ import re
 import difflib
 from os.path import join
 import pandas as pd
+import operator
 
 class bcolors:
     HEADER = '\033[95m'
@@ -67,6 +68,7 @@ groupby = set(args.groupby.split(','))
 partial = set([s.strip() for s in args.partial.split(',')])
 
 data = []
+names = []
 fdata = {}
 groups = {}
 namespaces = set()
@@ -100,7 +102,11 @@ for folder in folders:
                         continue
 
                     if multimatch:
-                        groups[config][-1] = float(matches[0])
+                        metric = float(matches[0])
+                        if metric < groups[config][-1]:
+                            groups[config][-1] = float(matches[0])
+                        if args.name:
+                            names[-1] = (names[-1][0], groups[config][-1])
                     else:
                         config = tuple(config)
                         if config not in groups:
@@ -108,8 +114,14 @@ for folder in folders:
 
                         groups[config].append(float(matches[0]))
                         if args.name:
-                            print(join(folder, log_name), float(matches[0]))
+                            names.append((join(folder, log_name), groups[config][-1]))
                         multimatch = True
+if args.name:
+    sorted_x = sorted(names, key=operator.itemgetter(1), reverse=True)
+    for path, score in sorted_x:
+        print(path, score)
+
+    
 
 if args.diff:
     for n1 in namespaces:
@@ -172,6 +184,7 @@ for group in keys:
             row.append(value)
         row.append(m)
         row.append(se)
+        row.append(np.median(data))
         row.append(m-conf95)
         row.append(m+conf95)
         row.append(len(data))
@@ -192,6 +205,7 @@ if args.csv != '':
         columns.append(key)
     columns.append('Mean')
     columns.append('SE')
+    columns.append('Median')
     columns.append('CI lower')
     columns.append('CI upper')
     columns.append('n')
