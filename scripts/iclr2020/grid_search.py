@@ -9,14 +9,13 @@ parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
-log_base = '/usr/lusers/dettmers/data/logs/'
 
 cmd = 'OMP_NUM_THREADS=1 python main.py'
 
 args2 = {}
 args2['data'] = 'cifar'
 args2['decay_frequency'] = 30000
-args2['epochs'] = 250
+args2['epochs'] = 2
 #args2['data'] = 'mnist'
 #args2['epochs'] = 100
 #args2['decay_frequency'] = 40
@@ -29,23 +28,25 @@ args2['growth'] = 'momentum'
 args2['redistribution'] = 'momentum'
 
 
-logfolder = 'iclr2020/{0}/'.format('lr_grid')
+logfolder = 'ssh_test/{0}/'.format('lr_grid')
 time_hours = 8
 cores_per_job = 3
 num_seeds = 1
-seed_offset = 4
+seed_offset = 0
 
 #account = 'cse'
 account = 'stf'
 change_dir = 'sparse_learning/mnist_cifar/'
+repo = 'sparse_learning'
 
-s = gpuscheduler.HyakScheduler('/gscratch/cse/dettmers/git/sched/config/', verbose=args.verbose, account=account, partition=account + '-gpu')
+#s = gpuscheduler.HyakScheduler(verbose=args.verbose, account=account, partition=account + '-gpu')
+s = gpuscheduler.SshScheduler(verbose=args.verbose)
 
 for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
 args3 = {}
-args3['lr'] = [0.01, 0.03, 0.06, 0.1, 0.3, 0.6, 1.0]
+args3['lr'] = [0.1, 0.03]
 args3['batch-size'] = [128]
 
 args4 = []
@@ -86,7 +87,7 @@ for seed in range(num_seeds):
             for val in values:
                 job_cmd += ' {0}' .format(val)
             jobs.append(job_cmd)
-            s.add_job(logfolder, change_dir, job_cmd, time_hours, fp16, cores=cores_per_job)
+            s.add_job(logfolder, repo, change_dir, job_cmd, time_hours, fp16, cores=cores_per_job)
 
 if args.dry:
     for job in jobs:
@@ -96,5 +97,5 @@ if args.dry:
     print('Jobs will be run on: {0}'.format(account))
 
 if not args.dry:
-    s.run_jobs(log_base, add_fp16=True)
+    s.run_jobs()
 

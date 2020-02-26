@@ -39,6 +39,11 @@ def execute(strCMD):
     except:
         return None
 
+def execute_blocking(strCMD):
+    proc = subprocess.Popen(strCMD, shell=True, universal_newlines=True)
+    proc.wait()
+    proc.terminate()
+
 def execute_and_return(strCMD):
     proc = subprocess.Popen(shlex.split(strCMD), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
@@ -61,7 +66,7 @@ gpu_name2performance_class['GeForce GTX 1080 Ti'] = 3
 
 
 class GPUWorker(threading.Thread):
-    def __init__(self, scheduler, config_folder, logdir, host_name, host_config, device_id, job, idx, cmds):
+    def __init__(self, scheduler, local_config, config_folder, logdir, host_name, host_config, device_id, job, idx, cmds):
         super(GPUWorker, self).__init__()
         self.scheduler = scheduler
         self.isDaemon = False
@@ -74,6 +79,7 @@ class GPUWorker(threading.Thread):
         self.init_dir = config_folder
         self.prefix = '{0}.{1}'.format(host_name, device_id)
         self.additional_cmds = cmds
+        self.local_config = local_config
 
     def construct_init_file(self):
         if not os.path.exists('/tmp/gpuscheduler'): os.mkdir('/tmp/gpuscheduler')
@@ -86,10 +92,14 @@ class GPUWorker(threading.Thread):
             new_env = "sed -i 's/anaconda3/{0}/g' {1}".format(self.cfg['conda_path'], init_path)
             print('{0}: Executing change in conda path variable...'.format(self.prefix))
             execute(new_env)
+
+        work_dir_remote = join(self.cfg['GIT_HOME'], self.job['work_dir'])
+        repo_local = join(self.local_config['GIT_HOME'], self.job['repo_dir'])
+        repo_remote = join(self.cfg['GIT_HOME'])
+
         with open(init_path, 'a') as f:
-            work_dir = join(self.cfg['GIT_HOME'], self.job['work_dir'])
             f.write('export GIT_HOME={0}\n'.format(self.cfg['GIT_HOME']))
-            f.write('cd {0}\n'.format(work_dir))
+            f.write('cd {0}\n'.format(work_dir_remote))
             if self.cfg['conda_env'] != 'base':
                 f.write('source activate {0}\n'.format(self.cfg['conda_env']))
             for cmd in self.additional_cmds:
@@ -99,6 +109,11 @@ class GPUWorker(threading.Thread):
         cmd = 'scp {0} {1}:~/'.format(init_path, self.host_name)
         print('{0}: Transfering init file...'.format(self.prefix))
         execute(cmd)
+
+        print('Performing rsync...')
+        rsync = 'rsync --update -raz --progress --max-size=10m {0} {1}:{2}/'.format(repo_local, self.host_name, repo_remote)
+        execute_blocking(rsync)
+
         time.sleep(2)
 
 
@@ -119,7 +134,7 @@ class GPUWorker(threading.Thread):
         print('Executing on {0}:{1}...'.format(self.host_name, self.device_id))
         out, err = cmd_over_ssh(self.host_name, 'init_{0}.sh'.format(self.idx))
         log_name = str(uuid.uuid4()) + '.log'
-        if len(err) > 0:
+        if len(err) > 0 and 'warning' not in err.lower():
             print('{1}: ERROR: {0}'.format(err, self.prefix))
             err_file_path = join(self.logdir, 'errors', log_name)
             with open(err_file_path, 'w') as f:
@@ -131,14 +146,14 @@ class GPUWorker(threading.Thread):
         with open(file_path, 'w') as f:
             f.write(out)
 
-        if len(err) > 0:
+        if len(err) > 0 and not 'warning' in err.lower():
             print('{0}: Finish task with errors! Writing stdout data to {1} and error to {2}...'.format(self.prefix, file_path, err_file_path))
         else:
             print('{0}: Finish task successfully! Writing data to {1}...'.format(self.prefix, file_path))
 
 
 class HyakScheduler(object):
-    def __init__(self, config_folder, verbose=False, account='cse', partition='cse-gpu'):
+    def __init__(self, config_folder='./config', verbose=False, account='cse', partition='cse-gpu'):
         self.jobs = []
         self.verbose = verbose
         self.config = {}
@@ -147,7 +162,7 @@ class HyakScheduler(object):
         self.config['partition'] = partition
 
     def init_with_config(self, config_folder):
-        with open(join(config_folder, 'config.cfg')) as f:
+        with open(join(config_folder, 'slurm_config.cfg')) as f:
             for line in f:
                 name, value = line.split(' ')
                 self.config[name.strip()] = value.strip()
@@ -163,11 +178,11 @@ class HyakScheduler(object):
         if self.verbose:
             print('#SBATCH --time={0:02d}:00:00'.format(time_hours))
 
-    def run_jobs(self, logdir, cmds=[], add_fp16=False, host2cmd_adds={}, remap={}):
+    def run_jobs(self, cmds=[], host2cmd_adds={}, remap={}):
         for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores) in enumerate(self.jobs):
             lines = []
             logid = str(uuid.uuid4())
-            log_path = join(join(logdir, path))
+            log_path = join(join(self.config['LOG_HOME'], path))
             lines.append('#!/bin/bash')
             lines.append('#')
             lines.append('#SBATCH --job-name={0}'.format(join(path, logid)))
@@ -211,7 +226,7 @@ class SshScheduler(object):
 
     """Execute tasks over ssh in the background."""
 
-    def __init__(self, config_folder, verbose=False):
+    def __init__(self, config_folder='./config', verbose=False):
         self.queue = Queue()
         self.host_data = None
         self.last_polled = datetime.datetime.now() - datetime.timedelta(hours=1)
@@ -219,6 +234,14 @@ class SshScheduler(object):
         self.host2config = self.init_hosts(config_folder)
         self.config_folder = config_folder
         self.verbose = verbose
+        self.local_config = {}
+        self.init_with_config(config_folder)
+
+    def init_with_config(self, config_folder):
+        with open(join(config_folder, 'ssh_config.cfg')) as f:
+            for line in f:
+                name, value = line.split(' ')
+                self.local_config[name.strip()] = value.strip()
 
     def init_hosts(self, config_folder):
         """Parses host config file and their git paths.
@@ -293,7 +316,8 @@ class SshScheduler(object):
                     total_fp16 += 1
             avail_fp16 = min(num_available, total_fp16)
             total_available_fp16 += avail_fp16
-            print('Host: {0}. Available 16-bit: {2}. Total available {1}.'.format(host, min(num_available, avail_fp16), num_available))
+
+            print('Host: {0}. Available 16-bit: {2}. Total available {1}.'.format(host, num_available, min(num_available, avail_fp16)))
 
         print('A total of {0} GPUs are available on {1} total hosts.'.format(total_available, len(self.host2config)))
         print('Of these GPUs a total of {0} have 16-bit capability (tensor cores).'.format(total_available_fp16))
@@ -338,7 +362,7 @@ class SshScheduler(object):
         else:
             return GPUStatus.busy
 
-    def add_job(self, path, work_dir, cmd, fp16=False, gpus=1, cores=None):
+    def add_job(self, path, repo_dir, work_dir, cmd, fp16=False, gpus=1, cores=None):
         """Adds a job to execute.
 
         :path: Sub-folder path for the log file.
@@ -349,6 +373,7 @@ class SshScheduler(object):
         job = {}
         job['path'] = path
         job['work_dir'] = work_dir
+        job['repo_dir'] = repo_dir
         job['cmd'] = cmd
         job['fp16'] = fp16
         job['gpus'] = gpus
@@ -378,7 +403,7 @@ class SshScheduler(object):
         return priority_list
 
 
-    def run_jobs(self, logdir, cmds=[], add_fp16=False, host2cmd_adds={}, remap={}):
+    def run_jobs(self, cmds=[], host2cmd_adds={}, remap={}):
         gpus_available = self.get_total_available()
 
         while self.queue.qsize() > 0:
@@ -392,16 +417,11 @@ class SshScheduler(object):
                 if (host, device_id) in remap:
                     device_id = remap[(host, device_id)]
                 job = self.queue.get()
-                if add_fp16 and fp16:
-                    job['cmd'] += ' --fp16'
 
                 if host in host2cmd_adds:
                     job['cmd'] += host2cmd_adds[host]
 
-                if job['fp16'] and not fp16:
-                    self.queue.put(job)
-                    continue
-                workers.append(GPUWorker(self, self.config_folder, logdir, host, self.host2config[host], device_id, job, i, cmds))
+                workers.append(GPUWorker(self, self.local_config, self.config_folder, self.local_config['LOG_HOME'], host, self.host2config[host], device_id, job, i, cmds))
 
             for worker in workers:
                 time.sleep(5)
@@ -409,7 +429,7 @@ class SshScheduler(object):
 
             if self.queue.qsize() > 0:
                 for i in range(5):
-                    time.sleep(60 + np.random.randint(1, 7)) # wait for 5 minutes + some random amount of time
+                    time.sleep(20 + np.random.randint(1, 7)) # wait for 20 seconds + some random amount of time
                     if self.queue.qsize() == 0: break
                 if self.queue.qsize() > 0:
                     self.poll_gpu_status()
