@@ -157,6 +157,7 @@ class HyakScheduler(object):
         self.jobs = []
         self.verbose = verbose
         self.config = {}
+        self.remap = {}
         self.init_with_config(config_folder)
         self.config['account'] = account
         self.config['partition'] = partition
@@ -178,7 +179,7 @@ class HyakScheduler(object):
         if self.verbose:
             print('#SBATCH --time={0:02d}:00:00'.format(time_hours))
 
-    def run_jobs(self, cmds=[], host2cmd_adds={}, remap={}):
+    def run_jobs(self, cmds=[], host2cmd_adds={}):
         for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores) in enumerate(self.jobs):
             lines = []
             logid = str(uuid.uuid4())
@@ -235,13 +236,23 @@ class SshScheduler(object):
         self.config_folder = config_folder
         self.verbose = verbose
         self.local_config = {}
+        self.remap = {}
         self.init_with_config(config_folder)
+        self.init_remap(config_folder)
 
     def init_with_config(self, config_folder):
         with open(join(config_folder, 'ssh_config.cfg')) as f:
             for line in f:
                 name, value = line.split(' ')
                 self.local_config[name.strip()] = value.strip()
+
+    def init_remap(self, config_folder):
+        with open(join(config_folder, 'remap.txt')) as f:
+            for line in f:
+                host, a, b = line.split(',')
+                self.remap[(host.strip(), int(a.strip()))] = int(b.strip())
+
+
 
     def init_hosts(self, config_folder):
         """Parses host config file and their git paths.
@@ -403,7 +414,7 @@ class SshScheduler(object):
         return priority_list
 
 
-    def run_jobs(self, cmds=[], host2cmd_adds={}, remap={}):
+    def run_jobs(self, cmds=[], host2cmd_adds={}):
         gpus_available = self.get_total_available()
 
         while self.queue.qsize() > 0:
@@ -414,8 +425,8 @@ class SshScheduler(object):
             print('{0}: Starting jobs...'.format(datetime.datetime.now()))
             for i in range(min(gpus_available, self.queue.qsize(), len(priority_list))):
                 host, device_id, fp16 = priority_list[i]
-                if (host, device_id) in remap:
-                    device_id = remap[(host, device_id)]
+                if (host, device_id) in self.remap:
+                    device_id = self.remap[(host, device_id)]
                 job = self.queue.get()
 
                 if host in host2cmd_adds:

@@ -1,0 +1,8 @@
+ofir4,0,1
+ofir4,1,0
+ofir1,0,1
+ofir2,1,0
+ofir2,0,1
+ofir1,1,0
+shoob,2,0
+shoob,0,2   
