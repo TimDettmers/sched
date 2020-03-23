@@ -213,7 +213,7 @@ class HyakScheduler(object):
                 for line in lines:
                     f.write('{0}\n'.format(line))
 
-            time.sleep(0.05)
+            time.sleep(0.1)
             out, err = execute_and_return('sbatch /tmp/init_{0}.sh'.format(i))
             if err != '':
                 print(err)

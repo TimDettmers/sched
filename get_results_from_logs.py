@@ -79,7 +79,9 @@ for folder in folders:
             multimatch = False
             config = None
             for line in f:
-                if line.startswith('Namespace('):
+                if 'Namespace(' in line:
+                    if not line.startswith('Namespace('):
+                        line = line[line.find('Namespace('):]
                     if args.namespaces:
                         idx = line.index('seed')
                         hsh = line[:idx] + line[idx+6:] 
