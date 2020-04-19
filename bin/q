@@ -1,0 +1,2 @@
+#!/bin/bash
+sacct -X -u dettmers --format="Elapsed,AllocGres,Jobid,State,Account,NodeList"

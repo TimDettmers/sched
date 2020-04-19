@@ -105,7 +105,7 @@ for folder in folders:
 
                     if multimatch:
                         metric = float(matches[0])
-                        if metric < groups[config][-1]:
+                        if metric > groups[config][-1]:
                             groups[config][-1] = float(matches[0])
                         if args.name:
                             names[-1] = (names[-1][0], groups[config][-1])

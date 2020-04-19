@@ -10,50 +10,47 @@ parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
 
-cmd = 'OMP_NUM_THREADS=1 fairseq-train --task language_modeling --arch transformer_lm --share-decoder-input-output-embed   --sample-break-mode none --ddp-backend=no_c10d --batch-size 16  --log-format simple --no-save --log-interval 50 --fp16 '
+cmd = 'OMP_NUM_THREADS=1 python train.py --cuda --data ../data/wikitext-2/ --dataset wt103 --adaptive --gpu0_bsz 1 --fp16 --dynamic-loss-scale --log-interval 50 --eval-interval 400'
 
 args2 = {}
-#args2['warmup-updates'] = int(400/2.0*10)
-args2['update-freq'] = 1
-args2['optimizer'] = 'adam'
-args2['adam-betas'] = "'(0.9, 0.98)'"
-args2['sbp'] = ''
-
-args2['max-tokens'] = 2048
-args2['clip-norm'] = 0.0003
-#args2['weight-decay'] = 1e-07
-#args2['dropout'] = 0.35
-#args2['attention-dropout'] = 0.2
-#args2['activation-dropout'] = 0.0
-# seq length
-args2['tokens-per-sample'] = 128
-args2['keep-last-epochs'] = 1
-args2['lr-scheduler'] = 'inverse_sqrt'
-
-#args2['lr-period-updates'] = 270000
-#args2['max-lr'] = 1.0
-#args2['max-update'] = int(25000/2.0*10)
-args2['min-lr'] = 1e-09
-args2['warmup-init-lr'] = 1e-07
-args2['lr'] = 0.0007
-args2['decoder-embed-dim'] = 400
-args2['decoder-ffn-embed-dim'] = 2000
-args2['decoder-layers'] = 16
-args2['decoder-attention-heads'] = 10
+#args2['n_layer'] = 16
+args2['d_model'] = 400
+args2['n_head'] = 10
+args2['d_head'] = 40
+#args2['d_inner'] = 2000
+#args2['dropout'] = 0.0
+#args2['dropatt'] = 0.0
+#args2['lr'] = 0.0007
+args2['warmup_step'] = 3000
+#args2['max_step'] = 25000
+args2['tgt_len'] = 150
+args2['mem_len'] = 150
+args2['eval_tgt_len'] = 150
+args2['batch_size'] = 32
+#args2['dropouti'] = 0.0
+#args2['dropouto'] = 0.0
+#args2['dropoute'] = 0.0
 
 
-logfolder = 'sbp/{0}/'.format('grid_momentum1')
+
+#12 with output drop at final layer; 11 without
+# 15 with wdecay, a bit longer training
+# 16 with wdecay, a bit longer training; and standard pre-softmax scaling
+# 17 with wdecay, a bit longer training; and standard pre-softmax scaling; remove dropout after final hidden layer
+# 18 with wdecay, a bit longer training; and standard pre-softmax scaling
+# 19 with xavier
+logfolder = 'replication/{0}/'.format('grid18')
+#time_hours = 24*14
 time_hours = 24
 cores_per_job = 4
 num_seeds = 1
 seed_offset = 0
-#dataset = 'data/wikitext-10'
 
 account = 'cse'
 #account = 'stf'
 #account = 'ark'
-change_dir = 'fairseq_private/'
-repo = 'fairseq_private'
+change_dir = 'transformer-xl/pytorch'
+repo = 'transformer-xl'
 
 s = gpuscheduler.HyakScheduler(verbose=args.verbose, account=account, partition=account + '-gpu')
 #s = gpuscheduler.SshScheduler(verbose=args.verbose)
@@ -62,23 +59,22 @@ for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
 args3 = {}
-args3['weight-decay'] = [1e-08]
-args3['dropout'] = [0.3]
-args3['attention-dropout'] = [0.20]
-#args3['activation-dropout'] = [0.0, 0.05, 0.1]
-args3['activation-dropout'] = [0.0]
-args3['beta'] = [0.5]
-args3['epsilon'] = [0.0]
-#args3['method'] = ['sum', 'rescaled_sum', 'inverse_rescaled_sum']
-args3['method'] = ['momentum']
-#args3['epsilon'] = [0.1, 0.2, 0.5, 0.7]
-#args3['decay'] = [0.995, 0.99, 0.98, 0.95]
+args3['lr'] = [0.00035]
+args3['max_step'] = [125000]
+args3['dropouti'] = [0.6]
+args3['dropouto'] = [0.5]
+#args3['dropouti'] = [0.6, 0.5, 0.7]
+#args3['dropouto'] = [0.5, 0.6, 0.4]
+args3['dropoute'] = [0.2]
+#args3['dropoute'] = [0.15, 0.2, 0.25]
+#args3['dropout'] = [0.2, 0.15, 0.25]
+#args3['dropatt'] = [0.2, 0.15, 0.25]
+args3['dropout'] = [0.2]
+args3['dropatt'] = [0.2]
+args3['d_inner'] = [900]
+args3['n_layer'] = [16]
+
 args4 = []
-
-for wt in [2, 5, 10]:
-    args4.append(' --max-update {0} --warmup-updates {1} data/wikitext-{2} '.format(int(25000/2.0*wt), int(400/2.0*wt), wt))
-
-
 
 args_prod = []
 for key, values in args3.items():
@@ -107,7 +103,8 @@ for seed in range(num_seeds):
     for arg4 in args4:
         if len(args_prod) == 0: args_prod.append(('', ''))
         for i, values in enumerate(args_prod):
-            job_cmd = cmd + ' --save-dir /gscratch/scrubbed/dettmers/{0} '.format(str(uuid.uuid4())) + ' --seed {0} '.format(seed) + arg4# + ' ' + dataset
+            job_cmd = cmd + ' --work-dir /gscratch/scrubbed/dettmers/{0} '.format(str(uuid.uuid4())) + ' --seed {0} '.format(seed) + arg4
+            #job_cmd = cmd + ' --seed {0} '.format(seed) + arg4
             for val in values:
                 job_cmd += ' {0}' .format(val)
             jobs.append(job_cmd)

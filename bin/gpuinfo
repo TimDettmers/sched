@@ -1,0 +1,10 @@
+#!/bin/bash
+if [ -z $1 ]
+then
+  P="ckpt-gpu"
+else
+  P=$1
+fi
+   
+sinfo -p $P -O partition,nodehost,gres,gresused,freemem,cpusstate 
+

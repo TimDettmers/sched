@@ -1,0 +1,3 @@
+#!/bin/bash
+
+squeue -t R -O partition,gres,username,cpus-per-task,minmemory,nodelist | grep gpu

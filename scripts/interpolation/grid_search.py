@@ -10,11 +10,11 @@ parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
 
-cmd = 'OMP_NUM_THREADS=1 python main.py'
-cmd = 'OMP_NUM_THREADS=1 fairseq-train --task language_modeling --arch transformer_lm --share-decoder-input-output-embed   --sample-break-mode none --ddp-backend=no_c10d --batch-size 16  --log-format simple --no-save --log-interval 50 --fp16 --save-dir /gscratch/scrubbed/dettmers/ '
+#cmd = 'OMP_NUM_THREADS=1 python main.py'
+cmd = 'OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed   --sample-break-mode none --ddp-backend=no_c10d --batch-size 12  --log-format simple --log-interval 50 --fp16 --keep-last-epochs 0 --keep-best-checkpoints 0'
 
 args2 = {}
-args2['warmup-updates'] = 400
+#args2['warmup-updates'] = 400
 args2['update-freq'] = 1
 args2['optimizer'] = 'adam'
 args2['adam-betas'] = "'(0.9, 0.98)'"
@@ -40,11 +40,19 @@ args2['lr'] = 0.0007
 #args2['decoder-ffn-embed-dim'] = 2000
 #args2['decoder-layers'] = 16
 args2['decoder-attention-heads'] = 10
-args2['decay'] = 1.0
+#args2['write-loss-folder'] = './losses_new '
+args2['arch'] = 'transformer_lm'
+args2['adaptive-input-cutoff'] = '20000,60000'
+args2['adaptive-softmax-cutoff'] '20000,60000'
+args2['share-decoder-input-output-embed'] = ''
+args2['criterion'] = 'adaptive_loss'
+args2['decoder-input-dim'] = 1200
+args2['decoder-output-dim'] = 400
 
 
-logfolder = 'interpolation/{0}/'.format('grid1')
-time_hours = 2
+logfolder = 'interpolation/{0}/'.format('grid6')
+time_hours = 24*2
+#time_hours = 2
 cores_per_job = 4
 num_seeds = 1
 seed_offset = 0
@@ -64,25 +72,33 @@ for key, value in args2.items():
 args3 = {}
 #args3['max-update'] = [25000]
 args3['weight-decay'] = [1e-08]
-args3['dropout'] = [0.3]
+args3['dropout'] = [0.2, 0.3]
 args3['attention-dropout'] = [0.20]
 #args3['activation-dropout'] = [0.0, 0.05, 0.1]
-args3['activation-dropout'] = [0.0]
-args3['decoder-embed-dim'] = [200, 400]
-args3['decoder-ffn-embed-dim'] = [2000, 4000]
+args3['decoder-embed-dim'] = [400]
+args3['decoder-ffn-embed-dim'] = [2048]
 args3['decoder-layers'] = [8, 16]
+#args3['arch'] = ['transformer_lm_baevski_wiki103','lightconv_lm'] 
 #args3['beta'] = [0.4]
 #args3['epsilon'] = [0.0]
-#args3['method'] = ['inverse_rescaled_sum', 'inverse_rescaled_max', 'percentile', 'topk_sum']
 #args3['method'] = ['max']
 #args3['epsilon'] = [0.1, 0.2, 0.5, 0.7]
 #args3['decay'] = [0.995, 0.99, 0.98, 0.95]
 args4 = []
-args4.append(' data/wikitext-2 --max-update 25000')
-args4.append(' data/wikitext-5 --max-update 62500')
-args4.append(' data/wikitext-7 --max-update 87500')
-args4.append(' data/wikitext-10 --max-update 125000')
-args4.append(' data/wikitext-15 --max-update 187500')
+#args4.append(' data/wikitext-1 --max-update 12500 --warmup-updates 100 ')
+#args4.append(' data/wikitext-2 --max-update 25000 --warmup-updates 200 ')
+#args4.append(' data/wikitext-3 --max-update 37500 --warmup-updates 600 ')
+#args4.append(' data/wikitext-4 --max-update 50000 --warmup-updates 800 ')
+#args4.append(' data/wikitext-5 --max-update 62500 --warmup-updates 1000 ')
+#args4.append(' data/wikitext-7 --max-update 87500 --warmup-updates 1400 ')
+#args4.append(' data/wikitext-10 --max-update 125000 --warmup-updates 2000 ')
+#args4.append(' data/wikitext-15 --max-update 187500 --warmup-updates 3000 ')
+#args4.append(' data/wikitext-25 --max-update 312500 --warmup-updates 5000 ')
+#args4.append(' data/wikitext-50 --max-update 625000 --warmup-updates 10000 ')
+#args4.append(' data/wikitext-75 --max-update 937500 --warmup-updates 15000 ')
+#args4.append(' data/wikitext-103 --max-update 1287500 --warmup-updates 20600 ')
+for wt in [1,2,3]:
+    args4.append(' --max-update {0} --warmup-updates {1} data/wikitext-{2} '.format(int(35000/2.0*wt), int(400/2.0*wt), wt))
 
 
 args_prod = []
@@ -112,7 +128,8 @@ for seed in range(num_seeds):
     for arg4 in args4:
         if len(args_prod) == 0: args_prod.append(('', ''))
         for i, values in enumerate(args_prod):
-            job_cmd = cmd + ' --seed {0} '.format(seed) + arg4
+            job_cmd = cmd + ' --save-dir /gscratch/scrubbed/dettmers/{0} '.format(str(uuid.uuid4())) + ' --seed {0} '.format(seed) + arg4
+            #job_cmd = cmd + ' --seed {0} '.format(seed) + arg4
             for val in values:
                 job_cmd += ' {0}' .format(val)
             jobs.append(job_cmd)
