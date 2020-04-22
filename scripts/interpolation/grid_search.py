@@ -3,6 +3,7 @@ import gpuscheduler
 import argparse
 import os
 import uuid
+import hashlib
 from itertools import product
 
 parser = argparse.ArgumentParser(description='Compute script.')
@@ -10,8 +11,8 @@ parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
 
-#cmd = 'OMP_NUM_THREADS=1 python main.py'
-cmd = 'OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed   --sample-break-mode none --ddp-backend=no_c10d --batch-size 12  --log-format simple --log-interval 50 --fp16 --keep-last-epochs 0 --keep-best-checkpoints 0'
+#cmd = 'OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed   --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-last-epochs 0 --keep-best-checkpoints 0'
+cmd = 'OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed   --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --keep-last-epochs 0 --keep-best-checkpoints 0'
 
 args2 = {}
 #args2['warmup-updates'] = 400
@@ -21,10 +22,10 @@ args2['adam-betas'] = "'(0.9, 0.98)'"
 
 args2['max-tokens'] = 2048
 args2['clip-norm'] = 0.0003
-#args2['weight-decay'] = 1e-07
-#args2['dropout'] = 0.35
-#args2['attention-dropout'] = 0.2
-#args2['activation-dropout'] = 0.0
+args2['weight-decay'] = 1e-07
+args2['dropout'] = 0.35
+args2['attention-dropout'] = 0.2
+args2['activation-dropout'] = 0.0
 # seq length
 args2['tokens-per-sample'] = 128
 args2['keep-last-epochs'] = 1
@@ -36,68 +37,62 @@ args2['lr-scheduler'] = 'inverse_sqrt'
 args2['min-lr'] = 1e-09
 args2['warmup-init-lr'] = 1e-07
 args2['lr'] = 0.0007
-#args2['decoder-embed-dim'] = 400
-#args2['decoder-ffn-embed-dim'] = 2000
+args2['batch-size'] = 16
+args2['decoder-embed-dim'] = 400
+args2['decoder-ffn-embed-dim'] = 2000
 #args2['decoder-layers'] = 16
 args2['decoder-attention-heads'] = 10
-#args2['write-loss-folder'] = './losses_new '
+args2['write-loss-folder'] = './losses'
 args2['arch'] = 'transformer_lm'
-args2['adaptive-input-cutoff'] = '20000,60000'
-args2['adaptive-softmax-cutoff'] '20000,60000'
-args2['share-decoder-input-output-embed'] = ''
-args2['criterion'] = 'adaptive_loss'
-args2['decoder-input-dim'] = 1200
-args2['decoder-output-dim'] = 400
+#args2['adaptive-input-cutoff'] = '20000,60000'
+#args2['adaptive-softmax-cutoff'] '20000,60000'
+#args2['share-decoder-input-output-embed'] = ''
+#args2['criterion'] = 'adaptive_loss'
+#args2['decoder-input-dim'] = 1200
+#args2['decoder-output-dim'] = 400
 
 
-logfolder = 'interpolation/{0}/'.format('grid6')
-time_hours = 24*2
-#time_hours = 2
+logfolder = 'interpolation/{0}/'.format('hypergrid1')
+#time_hours = 24*2
+time_hours = 8
 cores_per_job = 4
+mem = 24
 num_seeds = 1
 seed_offset = 0
 
-account = 'cse'
+#account = 'cse'
 #account = 'stf'
 #account = 'ark'
+#partition = 'scavenge'
+partition = 'learnfair'
+#partition = 'uninterrupted'
+#partition = 'dev'
 change_dir = 'fairseq_private/'
 repo = 'fairseq_private'
 
-s = gpuscheduler.HyakScheduler(verbose=args.verbose, account=account, partition=account + '-gpu')
+s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=partition, use_gres=False)
 #s = gpuscheduler.SshScheduler(verbose=args.verbose)
 
 for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
 args3 = {}
-#args3['max-update'] = [25000]
-args3['weight-decay'] = [1e-08]
-args3['dropout'] = [0.2, 0.3]
-args3['attention-dropout'] = [0.20]
-#args3['activation-dropout'] = [0.0, 0.05, 0.1]
-args3['decoder-embed-dim'] = [400]
-args3['decoder-ffn-embed-dim'] = [2048]
-args3['decoder-layers'] = [8, 16]
-#args3['arch'] = ['transformer_lm_baevski_wiki103','lightconv_lm'] 
-#args3['beta'] = [0.4]
-#args3['epsilon'] = [0.0]
-#args3['method'] = ['max']
-#args3['epsilon'] = [0.1, 0.2, 0.5, 0.7]
-#args3['decay'] = [0.995, 0.99, 0.98, 0.95]
+#args3['max-update'] = [15000, 25000, 35000, 50000]
+args3['dropout'] = [0.0, 0.1, 0.2, 0.35, 0.5]
+args3['attention-dropout'] = [0.0, 0.20]
+args3['decoder-embed-dim'] = [200, 400, 600]
+args3['decoder-ffn-embed-dim'] = [1000, 2000]
+args3['decoder-layers'] = [4, 16]
 args4 = []
-#args4.append(' data/wikitext-1 --max-update 12500 --warmup-updates 100 ')
-#args4.append(' data/wikitext-2 --max-update 25000 --warmup-updates 200 ')
-#args4.append(' data/wikitext-3 --max-update 37500 --warmup-updates 600 ')
-#args4.append(' data/wikitext-4 --max-update 50000 --warmup-updates 800 ')
-#args4.append(' data/wikitext-5 --max-update 62500 --warmup-updates 1000 ')
-#args4.append(' data/wikitext-7 --max-update 87500 --warmup-updates 1400 ')
-#args4.append(' data/wikitext-10 --max-update 125000 --warmup-updates 2000 ')
-#args4.append(' data/wikitext-15 --max-update 187500 --warmup-updates 3000 ')
-#args4.append(' data/wikitext-25 --max-update 312500 --warmup-updates 5000 ')
-#args4.append(' data/wikitext-50 --max-update 625000 --warmup-updates 10000 ')
-#args4.append(' data/wikitext-75 --max-update 937500 --warmup-updates 15000 ')
-#args4.append(' data/wikitext-103 --max-update 1287500 --warmup-updates 20600 ')
-for wt in [1,2,3]:
+# about 15 minutes for WT1
+#for wt in [1]:
+#for wt in [1,2,3,4]:#, 5, 7, 10, 15, 25]:
+for wt in [5, 7]:#, 10, 15, 25]:
+#for wt in [10, 15]:
+#for wt in [25]:
+#for wt in [50]:
+#for wt in [75]:
+#for wt in [103]:
     args4.append(' --max-update {0} --warmup-updates {1} data/wikitext-{2} '.format(int(35000/2.0*wt), int(400/2.0*wt), wt))
 
 
@@ -118,8 +113,6 @@ else:
             new_args.append([arg])
         args_prod = new_args
 
-seed_offset = 0
-
 jobs = []
 fp16 = True
 if len(args4) == 0: args4.append('')
@@ -128,19 +121,19 @@ for seed in range(num_seeds):
     for arg4 in args4:
         if len(args_prod) == 0: args_prod.append(('', ''))
         for i, values in enumerate(args_prod):
-            job_cmd = cmd + ' --save-dir /gscratch/scrubbed/dettmers/{0} '.format(str(uuid.uuid4())) + ' --seed {0} '.format(seed) + arg4
-            #job_cmd = cmd + ' --seed {0} '.format(seed) + arg4
+            job_cmd = cmd + ' --seed {0} '.format(seed) + arg4
             for val in values:
                 job_cmd += ' {0}' .format(val)
+            job_cmd = job_cmd + ' --save-dir /checkpoint/timdettmers/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest())
             jobs.append(job_cmd)
-            s.add_job(logfolder, repo, change_dir, job_cmd, time_hours, fp16, cores=cores_per_job)
+            s.add_job(logfolder, repo, change_dir, job_cmd, time_hours, fp16, cores=cores_per_job, mem=mem)
 
 if args.dry:
     for job in jobs:
         print(job)
     print('total jobs', len(jobs))
     print('Jobs will be written to: {0}'.format(logfolder))
-    print('Jobs will be run on: {0}'.format(account))
+    print('Jobs will be run on: {0}'.format(partition))
 
 if not args.dry:
     s.run_jobs()

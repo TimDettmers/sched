@@ -153,7 +153,7 @@ class GPUWorker(threading.Thread):
 
 
 class HyakScheduler(object):
-    def __init__(self, config_folder='./config', verbose=False, account='cse', partition='cse-gpu'):
+    def __init__(self, config_folder='./config', verbose=False, account='cse', partition='cse-gpu', use_gres=False):
         self.jobs = []
         self.verbose = verbose
         self.config = {}
@@ -161,6 +161,7 @@ class HyakScheduler(object):
         self.init_with_config(config_folder)
         self.config['account'] = account
         self.config['partition'] = partition
+        self.use_gres = use_gres
 
     def init_with_config(self, config_folder):
         with open(join(config_folder, 'slurm_config.cfg')) as f:
@@ -187,14 +188,18 @@ class HyakScheduler(object):
             lines.append('#!/bin/bash')
             lines.append('#')
             lines.append('#SBATCH --job-name={0}'.format(join(path, logid)))
-            lines.append('#SBATCH --account={0}'.format(self.config['account']))
+            if self.config['account'] != '':
+                lines.append('#SBATCH --account={0}'.format(self.config['account']))
             lines.append('#SBATCH --partition={0}'.format(self.config['partition']))
             lines.append('#')
             lines.append('#SBATCH --nodes=1')
             lines.append('#SBATCH --ntasks-per-node=1')
             lines.append('#SBATCH --cpus-per-task={0}'.format(cores))
             lines.append('#SBATCH --time={0:02d}:00:00'.format(time_hours))
-            lines.append('#SBATCH --gres=gpu:{0}'.format(gpus))
+            if self.use_gres:
+                lines.append('#SBATCH --gres=gpu:{0}'.format(gpus))
+            else:
+                lines.append('#SBATCH --gpus-per-node={0}'.format(gpus))
             lines.append('#SBATCH --mem={0}G'.format(mem))
             lines.append('#')
             lines.append('#SBATCH --chdir={0}'.format(join(self.config['GIT_HOME'], work_dir)))
@@ -213,7 +218,7 @@ class HyakScheduler(object):
                 for line in lines:
                     f.write('{0}\n'.format(line))
 
-            time.sleep(0.1)
+            time.sleep(0.05)
             out, err = execute_and_return('sbatch /tmp/init_{0}.sh'.format(i))
             if err != '':
                 print(err)

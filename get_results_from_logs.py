@@ -53,6 +53,7 @@ parser.add_argument('--partial', type=str, default='', help='Prints only configu
 parser.add_argument('--namespaces', action='store_true', help='Prints all argparse arguments.')
 parser.add_argument('--diff', action='store_true', help='Prints all argparse arguments with differences.')
 parser.add_argument('--csv', type=str, default='', help='Prints all argparse arguments with differences.')
+parser.add_argument('--lower-is-better', action='store_true', help='Whether a lower metric is better.')
 
 args = parser.parse_args()
 
@@ -105,8 +106,11 @@ for folder in folders:
 
                     if multimatch:
                         metric = float(matches[0])
-                        if metric > groups[config][-1]:
-                            groups[config][-1] = float(matches[0])
+                        if args.lower_is_better and metric < groups[config][-1]:
+                            #print(metric, groups[config][-1])
+                            groups[config][-1] = metric
+                        elif not args.lower_is_better and metric > groups[config][-1]:
+                            groups[config][-1] = metric
                         if args.name:
                             names[-1] = (names[-1][0], groups[config][-1])
                     else:

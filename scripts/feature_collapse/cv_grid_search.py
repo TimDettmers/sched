@@ -17,55 +17,48 @@ args2['batch-size'] = 128
 args2['data'] = 'cifar'
 #args2['epochs'] = 250
 #args2['model'] = 'vgg-d'
-args2['wave'] = ''
+#args2['wave'] = ''
 args2['no-batchnorm'] = ''
 
-# grid6 dropout/4
-# grid7 dropout/2
-logfolder = 'feature_collapse/{0}/'.format('grid7')
-time_hours = 4
-cores_per_job = 4
-mem = 12
+logfolder = 'feature_collapse/{0}/'.format('control')
+time_hours = 3
+cores_per_job = 5
+mem = 16
 num_seeds = 1
 seed_offset = 0
 
-account = 'cse-ckpt'
-#account = 'cse'
-#account = 'stf'
-#account = 'ark'
-#partition = account = '-gpu'
-partition = 'ckpt-gpu'
+account = ''
+partition = 'scavenge'
+#partition = 'learnfair'
+#partition = 'dev'
 change_dir = 'sparse_learning/mnist_cifar/'
 repo = 'sparse_learning'
 
-s = gpuscheduler.HyakScheduler(verbose=args.verbose, account=account, partition=partition)
+s = gpuscheduler.HyakScheduler(verbose=args.verbose, account=account, partition=partition, use_gres=False)
 #s = gpuscheduler.SshScheduler(verbose=args.verbose)
 
 for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
 args3 = {}
-args3['lowlr'] = [0.03, 0.01]
-args3['midlr'] = [0.01]
-args3['highlr'] = [0.1]
+args3['lr'] = [0.01, 0.03, 0.06, 0.1]
+#args3['lowlr'] = [0.03]
+#args3['midlr'] = [0.03]
+#args3['highlr'] = [0.03, 0.1]
+#args3['lowmom'] = [0.9, 0.7]
+#args3['midmom'] = [0.9, 0.8]
+#args3['highmom'] = [0.9, 0.95]
 #args3['decay_frequency'] = [15000, 30000]
 args3['epochs'] = [250]
-args3['jump-freq'] = [3, 5, 7, 10]
-args3['dropout'] = [0.1, 0.3, 0.5]
-args3['model'] = ['vgg-e']
+#args3['jump-freq'] = [12, 15, 18]
+args3['dropout'] = [0.1, 0.2, 0.3]
+args3['feat-drop'] = [0.075, 0.1, 0.125]
+args3['model'] = ['vgg-e', 'wrn-16-8']
+#args3['model'] = ['wrn-16-8']
 
 args4 = []
-#args4.append(' --lr-schedule multiplicative --decay-rate 0.97 ')
-#args4.append(' --lr-schedule multiplicative --decay-rate 0.985 ')
 args4.append(' --lr-schedule cosine ')
-#args4.append(' --lr-schedule step --decay-rate 0.1 --decay_frequency 30000 ')
 
-# good 30k 0.1 + dropout 0.2 >  30k 0.1 + dropout 0.0 + lowr 0.03
-# okay 0.2 / 15k
-# bad 0.33
-
-# cosine + 0.03
-# multiplicative + 0.98
 
 args_prod = []
 for key, values in args3.items():
@@ -105,7 +98,7 @@ if args.dry:
         print(job)
     print('total jobs', len(jobs))
     print('Jobs will be written to: {0}'.format(logfolder))
-    print('Jobs will be run on: {0}'.format(account))
+    print('Jobs will be run on: {0}'.format(partition))
 
 if not args.dry:
     s.run_jobs()
