@@ -175,19 +175,20 @@ class HyakScheduler(object):
 
 
 
-    def add_job(self, path, repo_dir, work_dir, cmd, time_hours, fp16=False, gpus=1, mem=32, cores=6):
-        self.jobs.append([path, work_dir, cmd, time_hours, fp16, gpus, mem, cores])
+    def add_job(self, path, repo_dir, work_dir, cmd, time_hours, fp16=False, gpus=1, mem=32, cores=6, constraint='volta'):
+        self.jobs.append([path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint])
         if self.verbose:
             print('#SBATCH --time={0:02d}:00:00'.format(time_hours))
 
     def run_jobs(self, cmds=[], host2cmd_adds={}):
-        for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores) in enumerate(self.jobs):
+        for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint) in enumerate(self.jobs):
             lines = []
             logid = str(uuid.uuid4())
+            script_file = join(self.config['SCRIPT_HISTORY'], 'init_{0}.sh'.format(logid))
             log_path = join(join(self.config['LOG_HOME'], path))
             lines.append('#!/bin/bash')
             lines.append('#')
-            lines.append('#SBATCH --job-name={0}'.format(join(path, logid)))
+            lines.append('#SBATCH --job-name={0}'.format(script_file))
             if self.config['account'] != '':
                 lines.append('#SBATCH --account={0}'.format(self.config['account']))
             lines.append('#SBATCH --partition={0}'.format(self.config['partition']))
@@ -201,6 +202,7 @@ class HyakScheduler(object):
             else:
                 lines.append('#SBATCH --gpus-per-node={0}'.format(gpus))
             lines.append('#SBATCH --mem={0}G'.format(mem))
+            lines.append('#SBATCH --constraint={0}'.format(constraint))
             lines.append('#')
             lines.append('#SBATCH --chdir={0}'.format(join(self.config['GIT_HOME'], work_dir)))
             lines.append('#SBATCH --output={0}'.format(join(log_path, logid + '.log')))
@@ -214,12 +216,12 @@ class HyakScheduler(object):
                 os.makedirs(log_path, exist_ok=True)
 
 
-            with open('/tmp/init_{0}.sh'.format(i), 'w') as f:
+            with open(script_file, 'w') as f:
                 for line in lines:
                     f.write('{0}\n'.format(line))
 
             time.sleep(0.05)
-            out, err = execute_and_return('sbatch /tmp/init_{0}.sh'.format(i))
+            out, err = execute_and_return('sbatch {0}'.format(script_file))
             if err != '':
                 print(err)
 
