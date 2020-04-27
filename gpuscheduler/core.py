@@ -175,13 +175,13 @@ class HyakScheduler(object):
 
 
 
-    def add_job(self, path, repo_dir, work_dir, cmd, time_hours, fp16=False, gpus=1, mem=32, cores=6, constraint='volta'):
-        self.jobs.append([path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint])
+    def add_job(self, path, repo_dir, work_dir, cmd, time_hours, fp16=False, gpus=1, mem=32, cores=6, constraint='volta', exclude=''):
+        self.jobs.append([path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint, exclude])
         if self.verbose:
             print('#SBATCH --time={0:02d}:00:00'.format(time_hours))
 
     def run_jobs(self, cmds=[], host2cmd_adds={}):
-        for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint) in enumerate(self.jobs):
+        for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint, exclude) in enumerate(self.jobs):
             lines = []
             logid = str(uuid.uuid4())
             script_file = join(self.config['SCRIPT_HISTORY'], 'init_{0}.sh'.format(logid))
@@ -203,6 +203,8 @@ class HyakScheduler(object):
                 lines.append('#SBATCH --gpus-per-node={0}'.format(gpus))
             lines.append('#SBATCH --mem={0}G'.format(mem))
             lines.append('#SBATCH --constraint={0}'.format(constraint))
+            if exclude != '':
+                lines.append('#SBATCH --exclude={0}'.format(exclude))
             lines.append('#')
             lines.append('#SBATCH --chdir={0}'.format(join(self.config['GIT_HOME'], work_dir)))
             lines.append('#SBATCH --output={0}'.format(join(log_path, logid + '.log')))

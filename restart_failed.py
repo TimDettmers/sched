@@ -16,8 +16,7 @@ def execute_and_return(strCMD):
     return out, err
 
 
-cmd = 'sacct -X -u {0} --format="Jobid,State,JobName%250,NodeList" --noheader | grep "FAILED\|TIMEOUT"'.format(args.user)
-print(cmd)
+cmd = 'sacct -X -u {0} --format="Jobid,State,JobName%250,NodeList" --noheader'.format(args.user)
 
 out, err = execute_and_return(cmd)
 
@@ -38,8 +37,12 @@ for l in lines:
     state = data[1]
     script = data[2]
     node = data[3]
+    if script in script2data and state in ['RUNNING', 'COMPLETED', 'PENNDING']:
+        # job already restarted successfully, no action needed, remove job
+        restarts.discard(script)
+        script2data.pop(script)
     if state not in states: continue
-    # add nodes that failed in the past even though the job to restart might not have failededededededededed on it
+    # add nodes that failed in the past even though the job to restart might not have failed on it
     if state == 'FAILED': banned.add(node)
     if jobid < args.startid: continue
     restarts.add(script)
@@ -49,7 +52,7 @@ print('Banned nodes: {0}'.format(','.join(banned)))
 if args.dry:
     print('')
     print('='*80)
-    print('Restarting the follwing {0} jobs...'.format(len(restarts)))
+    print('Restarting the following {0} jobs...'.format(len(restarts)))
     print('='*80)
     print('')
 for script in restarts:
