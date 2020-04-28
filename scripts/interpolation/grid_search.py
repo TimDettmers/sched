@@ -52,15 +52,16 @@ args2['decoder-attention-heads'] = 16
 #args2['decoder-output-dim'] = 1200
 
 
-logfolder = 'interpolation/{0}/'.format('test1')
+name = 'full_vocab_grid'
+logfolder = 'interpolation/{0}/'.format(name)
 #time_hours = 24*2
-time_hours = 72
 cores_per_job = 4
 mem = 24
 num_seeds = 1
 seed_offset = 0
 constraint = 'volta16gb'
-ckp_name = 'small_datasets'
+ckp_name = name
+args2['write-loss-folder'] = './{0}'.format(name)
 
 #account = 'cse'
 #account = 'stf'
@@ -72,6 +73,7 @@ partition = 'learnfair'
 #partition = 'dev'
 change_dir = 'fairseq_private/'
 repo = 'fairseq_private'
+exclude = 'learnfair0285,learnfair0405'
 
 s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=partition, use_gres=False)
 #s = gpuscheduler.SshScheduler(verbose=args.verbose)
@@ -90,14 +92,16 @@ args3['decoder-layers'] = [4, 8]
 args3['tokens-per-sample'] = [128, 192]
 args4 = []
 # about 15 minutes for WT1
+time_hours = 72
 #for wt in [1]:
+#for wt in [2,3,4,5]:
 #for wt in [1,2,3,4,5]:
 #for wt in [7, 10, 15]:
 #for wt in [25]:
 #for wt in [50]:
-#for wt in [75]:
-for wt in [103]:
-    args4.append(' --max-update {0} --warmup-updates {1} data/wikitext-{2} '.format(int(35000/2.0*wt), int(400/2.0*wt), wt))
+for wt in [75, 103]:
+    #args4.append(' --max-update {0} --warmup-updates {1} data/wikitext-{2} '.format(int(35000/2.0*wt), int(400/2.0*wt), wt))
+    args4.append(' --max-update {0} --warmup-updates {1} data/wikitext_full_vocab-{2} '.format(int(35000/2.0*wt), int(400/2.0*wt), wt))
 
 
 args_prod = []
@@ -131,7 +135,7 @@ for seed in range(num_seeds):
             job_cmd = job_cmd + save_path
             if not fp16: job_cmd = job_cmd.replace('--fp16', '')
             jobs.append(job_cmd)
-            s.add_job(logfolder, repo, change_dir, job_cmd, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint)
+            s.add_job(logfolder, repo, change_dir, job_cmd, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude)
 
 if args.dry:
     for job in jobs:

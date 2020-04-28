@@ -37,7 +37,7 @@ for l in lines:
     state = data[1]
     script = data[2]
     node = data[3]
-    if script in script2data and state in ['RUNNING', 'COMPLETED', 'PENNDING']:
+    if script in script2data and state in ['RUNNING', 'COMPLETED', 'PENDING']:
         # job already restarted successfully, no action needed, remove job
         restarts.discard(script)
         script2data.pop(script)

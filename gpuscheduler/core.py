@@ -175,13 +175,13 @@ class HyakScheduler(object):
 
 
 
-    def add_job(self, path, repo_dir, work_dir, cmd, time_hours, fp16=False, gpus=1, mem=32, cores=6, constraint='volta', exclude=''):
-        self.jobs.append([path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint, exclude])
+    def add_job(self, path, repo_dir, work_dir, cmd, time_hours, fp16=False, gpus=1, mem=32, cores=6, constraint='volta', exclude='', time_minutes=0):
+        self.jobs.append([path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes])
         if self.verbose:
-            print('#SBATCH --time={0:02d}:00:00'.format(time_hours))
+            print('#SBATCH --time={0:02d}:{1:02d}:00'.format(time_hours, time_minutes))
 
     def run_jobs(self, cmds=[], host2cmd_adds={}):
-        for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint, exclude) in enumerate(self.jobs):
+        for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
             lines = []
             logid = str(uuid.uuid4())
             script_file = join(self.config['SCRIPT_HISTORY'], 'init_{0}.sh'.format(logid))
@@ -196,7 +196,7 @@ class HyakScheduler(object):
             lines.append('#SBATCH --nodes=1')
             lines.append('#SBATCH --ntasks-per-node=1')
             lines.append('#SBATCH --cpus-per-task={0}'.format(cores))
-            lines.append('#SBATCH --time={0:02d}:00:00'.format(time_hours))
+            lines.append('#SBATCH --time={0:02d}:{1:02}:00'.format(time_hours, time_minutes))
             if self.use_gres:
                 lines.append('#SBATCH --gres=gpu:{0}'.format(gpus))
             else:
