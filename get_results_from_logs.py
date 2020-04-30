@@ -192,6 +192,8 @@ for config in keys:
             logs.append(cfg2logs[config][0])
         elif args.vim == 'all':
             logs += cfg2logs[config]
+        elif args.vim == 'config':
+            logs = cfg2logs[config]
         else:
             print(args.vim)
             raise NotImplementedError('Vim print mode not implemented')
@@ -216,6 +218,8 @@ for config in keys:
             print('Metric mean value (SE): {0:.3f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}'.format(m, m-float('NaN'), m+float('NaN'), len(data), float('NaN')))
         else:
             print('Metric mean value (SE): {0:.3f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}'.format(m, m-conf95, m+conf95, len(data), se))
+        if args.print_vim and args.vim == 'config':
+            print('vim {0}'.format(' '.join(logs)))
         print('='*80)
         if args.all:
             for d in data:

@@ -6,6 +6,7 @@ parser = argparse.ArgumentParser('Script to restart failed or timeouted jobs.')
 parser.add_argument('--startid', type=int, required=True, help='Restart all failed or timeouted jobs with this jobid or greater.')
 parser.add_argument('--user', type=str, required=True, help='The username for the restart.')
 parser.add_argument('--dry', action='store_true', help='Dry run the scripts to execute')
+parser.add_argument('--state', type=str, default='' ,help='If set only restarts jobs with a specific status: {FAILED,PREEMPTED,TIMEOUT}.')
 
 args = parser.parse_args()
 
@@ -45,6 +46,7 @@ for l in lines:
     # add nodes that failed in the past even though the job to restart might not have failed on it
     if state == 'FAILED': banned.add(node)
     if jobid < args.startid: continue
+    if args.state != '' and state != args.state: continue
     restarts.add(script)
     script2data[script] = (jobid, state, node)
 
