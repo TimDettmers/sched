@@ -215,8 +215,11 @@ class HyakScheduler(object):
 
             if not os.path.exists(log_path):
                 print('Creating {0}'.format(log_path))
-                os.makedirs(log_path, exist_ok=True)
+                os.makedirs(log_path)
 
+            if not os.path.exists(self.config['SCRIPT_HISTORY']):
+                print('Creating {0}'.format(self.config['SCRIPT_HISTORY']))
+                os.makedirs(self.config['SCRIPT_HISTORY'])
 
             with open(script_file, 'w') as f:
                 for line in lines:

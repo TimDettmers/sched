@@ -54,6 +54,8 @@ parser.add_argument('--namespaces', action='store_true', help='Prints all argpar
 parser.add_argument('--diff', action='store_true', help='Prints all argparse arguments with differences.')
 parser.add_argument('--csv', type=str, default='', help='Prints all argparse arguments with differences.')
 parser.add_argument('--lower-is-better', action='store_true', help='Whether a lower metric is better.')
+parser.add_argument('--print-vim', action='store_true', help='Prints a vim command to open the files for the presented results')
+parser.add_argument('--vim', type=str, default='one', help='Select vim print options: {one, all}. Use "one" for one file per seed or all for all of them.')
 
 args = parser.parse_args()
 
@@ -72,6 +74,7 @@ data = []
 names = []
 fdata = {}
 groups = {}
+cfg2logs = {}
 namespaces = set()
 for folder in folders:
     fdata[folder] = []
@@ -89,17 +92,19 @@ for folder in folders:
                         if line not in namespaces:
                             print(bcolors.OKGREEN + hsh + bcolors.ENDC)
                             namespaces.add(hsh)
-                    matches = re.findall(r'([^,]+)=([^,]+)', line[len('Namespace('):])
+                    matches = re.findall(r'([^,]+)=([^,]\S+)', line[len('Namespace('):])
                     config = []
                     for m in matches:
                         if m[0].strip() in groupby:
-                            config.append((m[0].strip(), m[1].strip().replace(')','').replace("'", '')))
+                            config.append((m[0].strip(), m[1].strip()[:-1].replace(')','').replace("'", '')))
                 if args.contains == '' or args.contains in line:
                     matches = re.findall(regex, line)
                 else:
                     matches = []
 
                 if len(matches) > 0:
+                    if tuple(config) not in cfg2logs: cfg2logs[tuple(config)] = []
+                    cfg2logs[tuple(config)].append(log_name)
                     if config is None:
                         print('Config for {0} not found. Test metric: {1}'.format(log_name, matches[0]))
                         continue
@@ -140,7 +145,8 @@ if args.namespaces: exit()
 keys = list(groups.keys())
 
 sort_keys = args.orderby.split(',')
-filter_keys = [] if args.filter == '' else args.filter.split(',')
+filter_keys = [] if args.filter == '' else args.filter.replace('\,', '___').split(',')
+filter_keys = [key.replace('___', ',') for key in filter_keys]
 
 order = []
 filters = {}
@@ -160,10 +166,11 @@ for idx in order:
     keys = sorted(keys, key=lambda x: x[idx])
 
 pandas_data = []
-for group in keys:
-    if any([v!=group[idx][1] for idx, v in filters.items()]): continue
+logs = []
+for config in keys:
+    if any([v!=config[idx][1] for idx, v in filters.items()]): continue
     if args.partial != '':
-        vals = [v for k,v in group]
+        vals = [v for k,v in config]
         skip = True
         for v in vals:
             for p in partial:
@@ -174,19 +181,28 @@ for group in keys:
         if skip:
             continue
 
-    
-    data = groups[group]
+
+    data = groups[config]
     if len(data) > 0:
         m = np.mean(data)
         if m > args.metric_lt: continue
         if m < args.metric_gt: continue
+
+        if args.vim == 'one':
+            logs.append(cfg2logs[config][0])
+        elif args.vim == 'all':
+            logs += cfg2logs[config]
+        else:
+            print(args.vim)
+            raise NotImplementedError('Vim print mode not implemented')
+
         if len(data) == 1: se = 0.0
         else: se = np.std(data, ddof=1)/np.sqrt(len(data))
         conf95 = 1.96*se
         print('='*80)
-        print('Summary for config {0}:'.format(group))
+        print('Summary for config {0}:'.format(config))
         row = []
-        for key, value in group:
+        for key, value in config:
             row.append(value)
         row.append(m)
         row.append(se)
@@ -205,9 +221,12 @@ for group in keys:
             for d in data:
                 print(d)
 
+if args.print_vim:
+    print('vim {0}'.format(' '.join(logs)))
+
 if args.csv != '':
     columns = []
-    for key, value in group:
+    for key, value in config:
         columns.append(key)
     columns.append('Mean')
     columns.append('SE')
