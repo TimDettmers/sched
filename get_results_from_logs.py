@@ -202,7 +202,7 @@ for i in idx:
         if m < args.metric_gt: continue
 
         if args.vim_mode == 'one':
-            logs.append(cfg2logs[config][0])
+            logs = cfg2logs[config][0]
         elif args.vim_mode == 'all':
             logs += cfg2logs[config]
         elif args.vim_mode == 'config':
@@ -231,6 +231,8 @@ for i in idx:
             print('Metric mean value (SE): {0:.3f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}'.format(m, m-float('NaN'), m+float('NaN'), len(data), float('NaN')))
         else:
             print('Metric mean value (SE): {0:.3f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}'.format(m, m-conf95, m+conf95, len(data), se))
+        if args.vim and args.vim_mode == 'one':
+            print('vim {0}'.format(logs))
         if args.vim and args.vim_mode == 'config':
             print('vim {0}'.format(' '.join(logs)))
         print('='*80)
@@ -238,7 +240,7 @@ for i in idx:
             for d in data:
                 print(d)
 
-if args.vim:
+if args.vim and args.vim_mode == 'all':
     print('vim {0}'.format(' '.join(logs)))
 
 if args.csv != '':
