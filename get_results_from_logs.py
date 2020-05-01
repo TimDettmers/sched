@@ -54,8 +54,8 @@ parser.add_argument('--namespaces', action='store_true', help='Prints all argpar
 parser.add_argument('--diff', action='store_true', help='Prints all argparse arguments with differences.')
 parser.add_argument('--csv', type=str, default='', help='Prints all argparse arguments with differences.')
 parser.add_argument('--lower-is-better', action='store_true', help='Whether a lower metric is better.')
-parser.add_argument('--print-vim', action='store_true', help='Prints a vim command to open the files for the presented results')
-parser.add_argument('--vim', type=str, default='one', help='Select vim print options: {one, all}. Use "one" for one file per seed or all for all of them.')
+parser.add_argument('--vim', action='store_true', help='Prints a vim command to open the files for the presented results')
+parser.add_argument('--vim-mode', type=str, default='config', help='Select vim print options: {one, all}. Use "one" for one file per seed or all for all of them.')
 
 args = parser.parse_args()
 
@@ -167,7 +167,20 @@ for idx in order:
 
 pandas_data = []
 logs = []
+metrics = []
 for config in keys:
+    data = groups[config]
+    if len(data) > 0:
+        m = np.mean(data)
+    else:
+        m = 0.0
+    metrics.append(m)
+idx = np.argsort(metrics)
+if args.lower_is_better:
+    idx = idx[::-1]
+
+for i in idx:
+    config = keys[i]
     if any([v!=config[idx][1] for idx, v in filters.items()]): continue
     if args.partial != '':
         vals = [v for k,v in config]
@@ -188,14 +201,14 @@ for config in keys:
         if m > args.metric_lt: continue
         if m < args.metric_gt: continue
 
-        if args.vim == 'one':
-            logs.append(cfg2logs[config][0])
-        elif args.vim == 'all':
+        if args.vim_mode == 'one':
+            logs = cfg2logs[config][0]
+        elif args.vim_mode == 'all':
             logs += cfg2logs[config]
-        elif args.vim == 'config':
+        elif args.vim_mode == 'config':
             logs = cfg2logs[config]
         else:
-            print(args.vim)
+            print(args.vim_mode)
             raise NotImplementedError('Vim print mode not implemented')
 
         if len(data) == 1: se = 0.0
@@ -218,14 +231,16 @@ for config in keys:
             print('Metric mean value (SE): {0:.3f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}'.format(m, m-float('NaN'), m+float('NaN'), len(data), float('NaN')))
         else:
             print('Metric mean value (SE): {0:.3f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}'.format(m, m-conf95, m+conf95, len(data), se))
-        if args.print_vim and args.vim == 'config':
+        if args.vim and args.vim_mode == 'one':
+            print('vim {0}'.format(logs))
+        if args.vim and args.vim_mode == 'config':
             print('vim {0}'.format(' '.join(logs)))
         print('='*80)
         if args.all:
             for d in data:
                 print(d)
 
-if args.print_vim:
+if args.vim and args.vim_mode == 'all':
     print('vim {0}'.format(' '.join(logs)))
 
 if args.csv != '':

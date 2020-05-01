@@ -20,21 +20,22 @@ cmd = 'python wrangle_losses.py'
 
 args2 = {}
 args2['f'] = 'clean_losses'
-args2['eval'] = 50
+args2['eval'] = 75
 args2['train'] = ''
 args2['data'] = 'all_1.npy'
 args2['norm'] = ''
+args2['cfg-feats'] = ''
 
 
-name = 'all5'
+name = 'all6'
 logfolder = 'interpolation/{0}/'.format(name)
 time_hours = 0
-time_minutes = 15
+time_minutes = 20
 cores_per_job = 4
 mem = 24
-num_seeds = 3
-seed_offset = 0
-constraint = 'volta16gb'
+num_seeds = 5
+seed_offset = 3
+constraint = ''
 ckp_name = name
 fp16 = False
 
@@ -48,7 +49,7 @@ partition = 'learnfair'
 #partition = 'dev'
 change_dir = 'fairseq_private/'
 repo = 'fairseq_private'
-exclude = 'learnfair0285,learnfair0405'
+exclude = ''
 
 s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=partition, use_gres=False)
 #s = gpuscheduler.SshScheduler(verbose=args.verbose)
@@ -58,29 +59,30 @@ for key, value in args2.items():
 
 args3 = {}
 #args3['lbl'] = ['103', '25,50,75,103', '10,15,25,50,75,103']
-args3['lbl'] = ['50']
-args3['epochs'] = [50, 125]
-args3['num-picks'] = [10, 25, 50]
+args3['lbl'] = ['75']
+args3['epochs'] = [175]
+args3['num-picks'] = [5]
 args3['lr'] = [0.0006]
 args3['hidden-size'] = [1024]
 #args3['wt'] = ['1,2']
-#args3['wt'] = ['1,2', '2,3', '1,3', '1,2,3']
+args3['wt'] = ['1,2']
 #args3['wt'] = ['2,3', '3,4', '2,4', '2,3,4']
 #args3['wt'] = ['1,2,3']
 #args3['wt'] = ['1,2,3', '2,3,4', '3,4,5', '4,5,7', '5,7,10', '7,10,15', '10,15,25', '15,25,50', '25,50,75']
 args3['layers'] = [1]
-args3['input-drop'] = [0.0, 0.05, 0.1]
-args3['dropout'] = [0.1, 0.2]
+args3['input-drop'] = [0.0, 0.05]
+args3['dropout'] = [0.1, 0.15, 0.2]
 args3['batch-size'] = [128]
 #args3['max-variation'] = ['dropout','decoder_embed_dim', 'decoder_ffn_embed_dim','decoder_layers', 'attention_dropout']
-#args3['exclude-variation'] = ['dropout','decoder_embed_dim', 'decoder_ffn_embed_dim','decoder_layers', 'attention_dropout']
+args3['exclude-variation'] = ['dropout','decoder_embed_dim', 'decoder_ffn_embed_dim','decoder_layers', 'attention_dropout']
 
 #args3['data-format'] = ['seq-len', 'mean', 'exact-seq']
 args3['data-format'] = ['exact-seq']
 #args3['data-format'] = ['seq-len']
 #args3['data-format'] = ['flat']
 args3['seq-len'] = [192]
-args3[''] = ['linear-feats --cfg-feats', 'linear-feats', 'cfg-feats', '']
+#args3[''] = ['linear-feats --cfg-feats', 'linear-feats', 'cfg-feats', '']
+#args3[''] = ['linear-feats --cfg-feats', 'cfg-feats']
 args4 = []
 
 args_prod = []
