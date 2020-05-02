@@ -11,7 +11,7 @@ parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
 
-cmd = 'OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed   --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --optimizer adam --adam-betas '(0.9, 0.98)' --max-tokens 2048 --update-freq 1 --clip-norm 0.0003 --weight-decay 1e-07 --dropout 0.35 --lr-scheduler inverse_sqrt --min-lr 1e-09 --warmup-init-lr 1e-07 --lr 0.0007 --arch transformer_lm --write-loss-folder ./full_vocab_grid --seed 0  --max-update 1802500 --warmup-updates 20600 data/wikitext-1   --dropout 0.2  --decoder-embed-dim 1024 --decoder-layers 3  --tokens-per-sample 192 --save-dir /checkpoint/timdettmers/full_vocab_grid/b6bc9cc66 --arch lightconv_lm --decoder-kernel-size-list 31,7,3 --max-target-positions 192 --decoder-conv-type lightweight'
+cmd = 'OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed   --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints'
 
 args2 = {}
 #args2['warmup-updates'] = 400
@@ -25,9 +25,9 @@ args2['update-freq'] = 1
 
 args2['clip-norm'] = 0.0003
 args2['weight-decay'] = 1e-07
-args2['dropout'] = 0.35
+#args2['dropout'] = 0.35
 args2['attention-dropout'] = 0.2
-args2['activation-dropout'] = 0.0
+#args2['activation-dropout'] = 0.0
 # seq length
 #args2['tokens-per-sample'] = 128
 args2['lr-scheduler'] = 'inverse_sqrt'
@@ -41,7 +41,7 @@ args2['lr'] = 0.0007
 #args2['decoder-embed-dim'] = 400
 #args2['decoder-ffn-embed-dim'] = 2048
 #args2['decoder-layers'] = 16
-args2['arch'] = 'transformer_lm'
+args2['arch'] = 'lightconv_lm'
 args2['decoder-attention-heads'] = 16
 #args2['adaptive-input-cutoff'] = '20000,60000'
 #args2['adaptive-softmax-cutoff'] '20000,60000'
@@ -51,16 +51,22 @@ args2['decoder-attention-heads'] = 16
 #args2['decoder-output-dim'] = 1200
 
 
-name = 'clean_loss_extended'
+args2['tokens-per-sample'] = 192
+args2['max-target-positions'] = args2['tokens-per-sample']
+args2['decoder-conv-type'] = 'dynamic'
+args2['decoder-learned-pos'] = ''
+
+
+name = 'lighyconv_grid2'
 logfolder = 'interpolation/{0}/'.format(name)
 #time_hours = 24*2
 cores_per_job = 4
 mem = 24
 num_seeds = 1
 seed_offset = 0
-constraint = 'volta16gb'
+constraint = 'volta'
 ckp_name = name
-args2['write-loss-folder'] = './{0}'.format(name)
+#args2['write-loss-folder'] = './{0}'.format(name)
 
 #account = 'cse'
 #account = 'stf'
@@ -83,18 +89,21 @@ for key, value in args2.items():
 fp16 = True
 args3 = {}
 #args3['max-update'] = [15000, 25000, 35000, 50000]
-args3['dropout'] = [0.0, 0.2]
-args3['attention-dropout'] = [0.0, 0.20]
-args3['decoder-embed-dim'] = [768, 1024]
-args3['decoder-ffn-embed-dim'] = [3072, 4096]
-args3['decoder-layers'] = [6, 10]
-args3['tokens-per-sample'] = [192]
+args3['dropout'] = [0.3, 0.2]
+args3['attention-dropout'] = [0.20]
+args3['decoder-embed-dim'] = [128, 256] # word embeddings
+args3['decoder-conv-dim'] = [512, '1024,1024,512,512,256,256', '256,256,512,512,1024,1024']
+args3['decoder-ffn-embed-dim'] = [768, 1024]
+args3['relu-dropout'] = [0.3, 0.4]
+args3['weight-dropout'] = [0.3, 0.4]
+args3['decoder-layers'] = [6]
+args3['decoder-kernel-size-list'] = ['3,7,15,31,31,31', '127,63,31,15,7,3', '63,31,15,7,3,3', '63,63,31,31,15,15']
 args4 = []
 # about 15 minutes for WT1
 time_hours = 72
 text2time_hours = {}
-text2time_hours['wikitext-1'] = 2
-text2time_hours['wikitext-2'] = 4
+text2time_hours['wikitext-1'] = 1
+text2time_hours['wikitext-2'] = 1
 text2time_hours['wikitext-3'] = 6
 text2time_hours['wikitext-4'] = 8
 text2time_hours['wikitext-5'] = 10
@@ -105,16 +114,15 @@ text2time_hours['wikitext-25'] = 48
 text2time_hours['wikitext-50'] = 72
 text2time_hours['wikitext-75'] = 72
 text2time_hours['wikitext-103'] = 72
-in_out_sizes = [256, 512, 1024]
-for wt in [1,2,3,4,5,7,10,15,25,50,75,103]:
+for wt in [1]:
+#for wt in [1,2,3,4,5,7,10,15,25,50,75,103]:
 #for wt in [2,3,4,5]:
 #for wt in [1,2,3,4,5]:
 #for wt in [7, 10, 15]:
 #for wt in [25]:
 #for wt in [50]:
 #for wt in [75, 103]:
-    for size in in_out_sizes:
-        args4.append(' --max-update {0} --warmup-updates {1} data/wikitext-{2} --decoder-input-dim {3} --decoder-output-dim {3} '.format(int(35000/2.0*wt), int(400/2.0*wt), wt, size))
+    args4.append(' --max-update {0} --warmup-updates {1} data/wikitext-{2}  '.format(int(35000/2.0*wt), int(400/2.0*wt), wt))
         #args4.append(' --max-update {0} --warmup-updates {1} data/wikitext_full_vocab-{2} --decoder-input-dim {3} --decoder-output-dim {3} '.format(int(35000/2.0*wt), int(400/2.0*wt), wt, size))
 
 

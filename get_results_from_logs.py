@@ -55,7 +55,7 @@ parser.add_argument('--diff', action='store_true', help='Prints all argparse arg
 parser.add_argument('--csv', type=str, default='', help='Prints all argparse arguments with differences.')
 parser.add_argument('--lower-is-better', action='store_true', help='Whether a lower metric is better.')
 parser.add_argument('--vim', action='store_true', help='Prints a vim command to open the files for the presented results')
-parser.add_argument('--vim-mode', type=str, default='config', help='Select vim print options: {one, all}. Use "one" for one file per seed or all for all of them.')
+parser.add_argument('--vim-mode', type=str, default='one', help='Select vim print options: {one, all}. Use "one" for one file per seed or all for all of them.')
 
 args = parser.parse_args()
 
@@ -92,11 +92,11 @@ for folder in folders:
                         if line not in namespaces:
                             print(bcolors.OKGREEN + hsh + bcolors.ENDC)
                             namespaces.add(hsh)
-                    matches = re.findall(r'([^,]+)=([^,]\S+)', line[len('Namespace('):])
+                    matches = re.findall(r'(?!^\()([^=,]+)=([^\0]+?)(?=,[^,]+=|\)$)', line[len('Namespace('):])
                     config = []
                     for m in matches:
                         if m[0].strip() in groupby:
-                            config.append((m[0].strip(), m[1].strip()[:-1].replace(')','').replace("'", '')))
+                            config.append((m[0].strip(), m[1].strip().replace(')','').replace("'", '')))
                 if args.contains == '' or args.contains in line:
                     matches = re.findall(regex, line)
                 else:
