@@ -20,7 +20,7 @@ args2['adam-betas'] = "'(0.9, 0.98)'"
 
 #args2['max-tokens'] = 1024
 #args2['update-freq'] = 2
-args2['max-tokens'] = 2048
+#args2['max-tokens'] = 2048
 args2['update-freq'] = 1
 
 args2['clip-norm'] = 0.0003
@@ -37,7 +37,7 @@ args2['lr-scheduler'] = 'inverse_sqrt'
 #args2['max-update'] = 25000
 args2['min-lr'] = 1e-09
 args2['warmup-init-lr'] = 1e-07
-args2['lr'] = 0.0007
+#args2['lr'] = 0.0007
 #args2['decoder-embed-dim'] = 400
 #args2['decoder-ffn-embed-dim'] = 2048
 #args2['decoder-layers'] = 16
@@ -51,13 +51,11 @@ args2['decoder-attention-heads'] = 16
 #args2['decoder-output-dim'] = 1200
 
 
-args2['tokens-per-sample'] = 192
-args2['max-target-positions'] = args2['tokens-per-sample']
 args2['decoder-conv-type'] = 'dynamic'
 args2['decoder-learned-pos'] = ''
 
 
-name = 'lighyconv_grid2'
+name = 'lightconv_loss'
 logfolder = 'interpolation/{0}/'.format(name)
 #time_hours = 24*2
 cores_per_job = 4
@@ -66,7 +64,7 @@ num_seeds = 1
 seed_offset = 0
 constraint = 'volta'
 ckp_name = name
-#args2['write-loss-folder'] = './{0}'.format(name)
+args2['write-loss-folder'] = './{0}'.format(name)
 
 #account = 'cse'
 #account = 'stf'
@@ -89,41 +87,55 @@ for key, value in args2.items():
 fp16 = True
 args3 = {}
 #args3['max-update'] = [15000, 25000, 35000, 50000]
-args3['dropout'] = [0.3, 0.2]
+args3['dropout'] = [0.2]
 args3['attention-dropout'] = [0.20]
-args3['decoder-embed-dim'] = [128, 256] # word embeddings
-args3['decoder-conv-dim'] = [512, '1024,1024,512,512,256,256', '256,256,512,512,1024,1024']
-args3['decoder-ffn-embed-dim'] = [768, 1024]
-args3['relu-dropout'] = [0.3, 0.4]
-args3['weight-dropout'] = [0.3, 0.4]
+args3['decoder-embed-dim'] = [256, 384] # word embeddings
+args3['decoder-conv-dim'] = [768, 1024]
+args3['decoder-ffn-embed-dim'] = [1024, 1792]
+args3['relu-dropout'] = [0.2, 0.3]
+args3['weight-dropout'] = [0.1, 0.2]
 args3['decoder-layers'] = [6]
-args3['decoder-kernel-size-list'] = ['3,7,15,31,31,31', '127,63,31,15,7,3', '63,31,15,7,3,3', '63,63,31,31,15,15']
+#args3['decoder-kernel-size-list'] = ['127,63,31,15,7,3,3,3']
+args3['decoder-kernel-size-list'] = ['127,63,31,15,7,3']
+max_tokens = 3072
+args3['max-tokens'] = [max_tokens]
+args3['lr'] = [0.0007]
 args4 = []
 # about 15 minutes for WT1
 time_hours = 72
 text2time_hours = {}
 text2time_hours['wikitext-1'] = 1
 text2time_hours['wikitext-2'] = 1
-text2time_hours['wikitext-3'] = 6
-text2time_hours['wikitext-4'] = 8
-text2time_hours['wikitext-5'] = 10
-text2time_hours['wikitext-7'] = 14
-text2time_hours['wikitext-10'] = 20
-text2time_hours['wikitext-15'] = 24
-text2time_hours['wikitext-25'] = 48
-text2time_hours['wikitext-50'] = 72
-text2time_hours['wikitext-75'] = 72
+text2time_hours['wikitext-3'] = 2
+text2time_hours['wikitext-4'] = 3
+text2time_hours['wikitext-5'] = 3
+text2time_hours['wikitext-7'] = 5
+text2time_hours['wikitext-10'] = 8
+text2time_hours['wikitext-15'] = 12
+text2time_hours['wikitext-25'] = 16
+text2time_hours['wikitext-50'] = 32
+text2time_hours['wikitext-75'] = 48
 text2time_hours['wikitext-103'] = 72
-for wt in [1]:
-#for wt in [1,2,3,4,5,7,10,15,25,50,75,103]:
-#for wt in [2,3,4,5]:
-#for wt in [1,2,3,4,5]:
-#for wt in [7, 10, 15]:
-#for wt in [25]:
-#for wt in [50]:
-#for wt in [75, 103]:
-    args4.append(' --max-update {0} --warmup-updates {1} data/wikitext-{2}  '.format(int(35000/2.0*wt), int(400/2.0*wt), wt))
-        #args4.append(' --max-update {0} --warmup-updates {1} data/wikitext_full_vocab-{2} --decoder-input-dim {3} --decoder-output-dim {3} '.format(int(35000/2.0*wt), int(400/2.0*wt), wt, size))
+
+#args2['tokens-per-sample'] = 192
+#args2['max-target-positions'] = args2['tokens-per-sample']
+
+sizes = [192, 384] # context length
+max_updates = [25000*2048/max_tokens]
+max_updates = [int(s) for s in max_updates]
+for max_update in max_updates:
+    for size in sizes:
+        #for wt in [1]:
+        #for wt in [2]:
+        for wt in [1,2,3,4,5,7,10,15,25,50,75,103]:
+        #for wt in [2,3,4,5]:
+        #for wt in [1,2,3,4,5]:
+        #for wt in [7, 10, 15]:
+        #for wt in [25]:
+        #for wt in [50]:
+        #for wt in [75, 103]:
+            #args4.append(' --max-update {0} --warmup-updates {1} data/wikitext-{2}  '.format(int(35000/2.0*wt), int(400/2.0*wt), wt))
+            args4.append(' --max-update {0} --warmup-updates {1} data/wikitext-{2} --max-target-positions {3} --tokens-per-sample {3} '.format(int(max_update/2.0*wt), int(400/2.0*wt), wt, size))
 
 
 args_prod = []
