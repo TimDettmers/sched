@@ -21,13 +21,13 @@ gpus = 8
 cmd = 'python -m torch.distributed.launch --nproc_per_node={0} --master_port 9919 main.py --data data/text8 --adapt-span --adapt-span-cache --distributed'.format(gpus)
 
 args2 = {}
-args2['word-nlayers'] = 6
+#args2['word-nlayers'] = 6
 args2['word-hid-sz'] = 512
 args2['word-inner-hid-sz'] = 2048
 args2['word-nheads'] = 8
 args2['word-attn-span'] = 8192
 args2['word-block-sz'] = 512
-args2['char-nlayers'] = 1
+#args2['char-nlayers'] = 1
 args2['char-hid-sz'] = 512
 args2['char-inner-hid-sz'] = 2048
 args2['char-nheads'] = 8
@@ -47,8 +47,9 @@ args2['batch-sz'] = 64
 args2['nbatches'] = 1000
 args2['batch-split'] = 1
 args2['fused-layernorm'] = ''
+args2['init'] = 'xavier_uniform'
 
-name = 'test5'
+name = 'grid1'
 ckp_name = name
 logfolder = 'tlm/{0}/'.format(name)
 #time_hours = 24*2
@@ -78,9 +79,11 @@ for key, value in args2.items():
 
 fp16 = True
 args3 = {}
-args3['init'] = ['xavier_uniform', 'sparse --init-sparsity 0.1']
-args3[''] = ['norm-comb-embs', '']
+#args3['init'] = ['xavier_uniform', 'sparse --init-sparsity 0.1']
+#args3[''] = ['norm-comb-embs', '']
 #args3[''] = ['fused-layernorm', '', 'char-tie-embs', 'fused-layernorm  --char-tie-embs']
+args3['word-nlayers'] = [6,8,10,12]
+args3['char-nlayers'] = [2,4,6]
 
 args4 = []
 time_hours = 72

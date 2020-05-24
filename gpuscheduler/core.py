@@ -184,11 +184,15 @@ class HyakScheduler(object):
     def run_jobs(self, cmds=[], host2cmd_adds={}, as_array=True):
 
         array_preamble = []
-        array_file = join(self.config['SCRIPT_HISTORY'], 'array_init_{0}.sh'.format(str(uuid.uuid4())))
+        array_id = str(uuid.uuid4())
+        array_file = join(self.config['SCRIPT_HISTORY'], 'array_init_{0}.sh'.format(array_id))
+        array_job_list = join(self.config['SCRIPT_HISTORY'], 'array_jobs_{0}.sh'.format(array_id))
+        script_list = []
         for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
             lines = []
             logid = str(uuid.uuid4())
             script_file = join(self.config['SCRIPT_HISTORY'], 'init_{0}.sh'.format(logid))
+            script_list.append(script_file)
             log_path = join(join(self.config['LOG_HOME'], path))
             lines.append('#!/bin/bash')
             lines.append('#')
@@ -219,6 +223,7 @@ class HyakScheduler(object):
 
             if len(array_preamble) == 0:
                 array_preamble = copy.deepcopy(lines[:-2])
+                array_preamble[2] = '#SBATCH --job-name={0}'.format(array_job_list)
                 array_preamble.append('#SBATCH --array=0-{0}'.format(len(self.jobs)-1))
                 array_preamble.append('')
                 array_preamble.append('export PATH=$PATH:{0}'.format(join(self.config['ANACONDA_HOME'], 'bin')))
@@ -262,6 +267,10 @@ class HyakScheduler(object):
             array_lines = array_preamble + array_lines
             with open(array_file, 'w') as f:
                 for line in array_lines:
+                    f.write('{0}\n'.format(line))
+
+            with open(array_job_list, 'w') as f:
+                for line in script_list:
                     f.write('{0}\n'.format(line))
 
             out, err = execute_and_return('sbatch {0}'.format(array_file))
