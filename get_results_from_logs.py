@@ -103,11 +103,11 @@ for folder in folders:
                     matches = []
 
                 if len(matches) > 0:
-                    if tuple(config) not in cfg2logs: cfg2logs[tuple(config)] = []
-                    cfg2logs[tuple(config)].append(log_name)
                     if config is None:
                         print('Config for {0} not found. Test metric: {1}'.format(log_name, matches[0]))
                         continue
+                    if tuple(config) not in cfg2logs: cfg2logs[tuple(config)] = []
+                    cfg2logs[tuple(config)].append(log_name)
 
                     if multimatch:
                         metric = float(matches[0])
@@ -235,10 +235,10 @@ for i in idx:
             print('vim {0}'.format(logs))
         if args.vim and args.vim_mode == 'config':
             print('vim {0}'.format(' '.join(logs)))
-        print('='*80)
         if args.all:
             for d in data:
                 print(d)
+print('='*80)
 
 if args.vim and args.vim_mode == 'all':
     print('vim {0}'.format(' '.join(logs)))

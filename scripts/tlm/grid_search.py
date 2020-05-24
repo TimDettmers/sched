@@ -1,43 +1,62 @@
 import itertools
+import gpuscheduler
 import argparse
 import os
 import uuid
 import hashlib
+import glob
+from itertools import product
 
-import numpy as np
-import gpuscheduler
-
-from itertools import product, combinations
 from os.path import join
 
 parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
-parser.add_argument('--scale', action='store_true')
 args = parser.parse_args()
 
-cmd = 'python wrangle_losses.py'
+
+#cmd = 'bash experiments/text8.sh {0}'.format(gpus)
+#cmd = 'bash experiments/text8_apeximproved.sh 8'
+gpus = 8
+cmd = 'python -m torch.distributed.launch --nproc_per_node={0} --master_port 9919 main.py --data data/text8 --adapt-span --adapt-span-cache --distributed'.format(gpus)
 
 args2 = {}
-args2['f'] = 'clean_losses'
-args2['eval'] = 75
-args2['train'] = ''
-args2['data'] = 'all_1.npy'
-args2['norm'] = ''
-args2['cfg-feats'] = ''
+args2['word-nlayers'] = 6
+args2['word-hid-sz'] = 512
+args2['word-inner-hid-sz'] = 2048
+args2['word-nheads'] = 8
+args2['word-attn-span'] = 8192
+args2['word-block-sz'] = 512
+args2['char-nlayers'] = 1
+args2['char-hid-sz'] = 512
+args2['char-inner-hid-sz'] = 2048
+args2['char-nheads'] = 8
+args2['char-attn-span'] = 8192
+args2['char-block-sz'] = 512
+args2['char-vocab-size'] = 33
+args2['lr'] = 0.07
+args2['momentum'] =  0
+args2['dropout'] = 0.3
+args2['optim'] = 'adagrad'
+args2['lr-warmup'] = 32000
+args2['grad-clip'] = 0.03
+args2['niter'] = 900
+args2['adapt-span-loss'] = 0.0000005
+args2['word-max-len'] = 15
+args2['batch-sz'] = 64
+args2['nbatches'] = 1000
+args2['batch-split'] = 1
+args2['fused-layernorm'] = ''
 
-
-name = 'all6'
-logfolder = 'interpolation/{0}/'.format(name)
-time_hours = 0
-time_minutes = 20
-cores_per_job = 4
-mem = 24
-num_seeds = 10
-seed_offset = 0
-constraint = ''
+name = 'test5'
 ckp_name = name
-fp16 = False
+logfolder = 'tlm/{0}/'.format(name)
+#time_hours = 24*2
+cores_per_job = gpus*4
+mem = 128
+num_seeds = 1
+seed_offset = 0
+constraint = 'volta'
 
 #account = 'cse'
 #account = 'stf'
@@ -47,8 +66,8 @@ fp16 = False
 partition = 'learnfair'
 #partition = 'uninterrupted'
 #partition = 'dev'
-change_dir = 'fairseq_private/'
-repo = 'fairseq_private'
+change_dir = 'tlm/'
+repo = 'tlm'
 exclude = ''
 
 s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=partition, use_gres=False)
@@ -57,33 +76,15 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
+fp16 = True
 args3 = {}
-#args3['lbl'] = ['103', '25,50,75,103', '10,15,25,50,75,103']
-args3['lbl'] = ['75']
-args3['epochs'] = [175]
-args3['num-picks'] = [5]
-args3['lr'] = [0.0006]
-args3['hidden-size'] = [1024]
-#args3['wt'] = ['1,2']
-args3['wt'] = ['1,2']
-#args3['wt'] = ['2,3', '3,4', '2,4', '2,3,4']
-#args3['wt'] = ['1,2,3']
-#args3['wt'] = ['1,2,3', '2,3,4', '3,4,5', '4,5,7', '5,7,10', '7,10,15', '10,15,25', '15,25,50', '25,50,75']
-args3['layers'] = [1]
-args3['input-drop'] = [0.0, 0.05]
-args3['dropout'] = [0.1, 0.15, 0.2]
-args3['batch-size'] = [128]
-#args3['max-variation'] = ['dropout','decoder_embed_dim', 'decoder_ffn_embed_dim','decoder_layers', 'attention_dropout']
-#args3['exclude-variation'] = ['dropout','decoder_embed_dim', 'decoder_ffn_embed_dim','decoder_layers', 'attention_dropout']
+args3['init'] = ['xavier_uniform', 'sparse --init-sparsity 0.1']
+args3[''] = ['norm-comb-embs', '']
+#args3[''] = ['fused-layernorm', '', 'char-tie-embs', 'fused-layernorm  --char-tie-embs']
 
-#args3['data-format'] = ['seq-len', 'mean', 'exact-seq']
-args3['data-format'] = ['exact-seq']
-#args3['data-format'] = ['seq-len']
-#args3['data-format'] = ['flat']
-args3['seq-len'] = [192]
-#args3[''] = ['linear-feats --cfg-feats', 'linear-feats', 'cfg-feats', '']
-#args3[''] = ['linear-feats --cfg-feats', 'cfg-feats']
 args4 = []
+time_hours = 72
+time_minutes = 0
 
 args_prod = []
 for key, values in args3.items():
@@ -109,12 +110,13 @@ for seed in range(num_seeds):
     for arg4 in args4:
         if len(args_prod) == 0: args_prod.append(('', ''))
         for i, values in enumerate(args_prod):
-            job_cmd = cmd + ' --seed {0} '.format(seed) + arg4
+            job_cmd = cmd + arg4
             for val in values:
                 job_cmd += ' {0}' .format(val)
+            job_cmd += ' --checkpoint /checkpoint/timdettmers/{1}/{0}/model.pt'.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
             if not fp16: job_cmd = job_cmd.replace('--fp16', '')
             jobs.append(job_cmd)
-            s.add_job(logfolder, repo, change_dir, job_cmd, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes)
+            s.add_job(logfolder, repo, change_dir, job_cmd, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
 
 if args.dry:
     for job in jobs:

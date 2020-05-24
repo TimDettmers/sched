@@ -1,13 +1,17 @@
 import argparse
 import subprocess
 import shlex
+import datetime
 
 parser = argparse.ArgumentParser('Script to restart failed or timeouted jobs.')
 parser.add_argument('--startid', type=int, required=True, help='Restart all failed or timeouted jobs with this jobid or greater.')
 parser.add_argument('--user', type=str, required=True, help='The username for the restart.')
 parser.add_argument('--dry', action='store_true', help='Dry run the scripts to execute')
 parser.add_argument('--no-exclude', action='store_true', help='Does not exclude any nodes from being run on.')
+parser.add_argument('--include-failed', action='store_true', help='Includes failed jobs.')
 parser.add_argument('--state', type=str, default='' ,help='If set only restarts jobs with a specific status: {FAILED,PREEMPTED,TIMEOUT}.')
+parser.add_argument('--days-back', type=int, default=1 ,help='How long in the history to look for failed jobs.')
+parser.add_argument('--restart-cancelled', action='store_true', help='Restarts cancelled jobs.')
 
 args = parser.parse_args()
 
@@ -18,7 +22,7 @@ def execute_and_return(strCMD):
     return out, err
 
 
-cmd = 'sacct -X -u {0} --format="Jobid,State,JobName%250,NodeList" --noheader'.format(args.user)
+cmd = 'sacct -X -u {0} --format="Jobid,State,JobName%250,NodeList" --noheader -S {1}'.format(args.user,datetime.date.today()-datetime.timedelta(days=args.days_back))
 
 out, err = execute_and_return(cmd)
 
@@ -28,7 +32,14 @@ if len(err) > 0:
 
 lines = out.split('\n')
 
-states = set(['FAILED', 'TIMEOUT', 'PREEMPTED'])
+if args.restart_cancelled and args.include_failed:
+    states = set(['FAILED', 'TIMEOUT', 'PREEMPTED', 'CANCELLED+'])
+elif args.restart_cancelled:
+    states = set(['TIMEOUT', 'PREEMPTED', 'CANCELLED+'])
+elif args.include_failed:
+    states = set(['FAILED', 'TIMEOUT', 'PREEMPTED'])
+else:
+    states = set(['TIMEOUT', 'PREEMPTED'])
 
 banned = set()
 restarts = set()

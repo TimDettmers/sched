@@ -4,7 +4,10 @@ import argparse
 import os
 import uuid
 import hashlib
+import glob
 from itertools import product
+
+from os.path import join
 
 parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
@@ -14,9 +17,10 @@ args = parser.parse_args()
 cmd = 'python eval_models.py'
 
 args2 = {}
-#args2['warmup-updates'] = 400
-args2['folder'] = 'clean_loss_extended_cpy'
-args2['folder_output'] = 'clean_loss_full_eval'
+args2['folder'] = 'lightconv_loss_cpy'
+args2['folder_output'] = 'lightconv_loss_evaled'
+#args2['folder'] = 'clean_loss_extended'
+#args2['folder_output'] = 'clean_loss_full_eval'
 
 name = 'model_eval'
 logfolder = 'interpolation/{0}/'.format(name)
@@ -25,17 +29,18 @@ cores_per_job = 4
 mem = 24
 num_seeds = 1
 seed_offset = 0
-constraint = 'volta'
+constraint = ''
 ckp_name = name
+num_jobs = 96
 
 #account = 'cse'
 #account = 'stf'
 #account = 'ark'
 #partition = 'scavenge'
 #partition = 'scavenge,learnfair'
-#partition = 'learnfair'
+partition = 'learnfair'
 #partition = 'uninterrupted'
-partition = 'dev'
+#partition = 'dev'
 change_dir = 'fairseq_private/'
 repo = 'fairseq_private'
 exclude = 'learnfair0285,learnfair0405'
@@ -49,10 +54,17 @@ for key, value in args2.items():
 fp16 = True
 args3 = {}
 args4 = []
-time_hours = 2
+time_hours = 0
+time_minutes = 15
+path = join('/private/home/timdettmers/git/', change_dir, args2['folder'], '*')
 
-for start in list(range(0,1152,1152//16)):
-    end = start + 1152//16
+files = list(glob.iglob(path))
+n = len(files)
+print('Total files: {0}'.format(n))
+print('Write to: {0}'.format(args2['folder_output']))
+
+for start in list(range(0,n,n//num_jobs)):
+    end = start + n//num_jobs
     args4.append(' --start-idx {0} --end-idx {1} '.format(start, end))
 
 
@@ -85,7 +97,7 @@ for seed in range(num_seeds):
                 job_cmd += ' {0}' .format(val)
             if not fp16: job_cmd = job_cmd.replace('--fp16', '')
             jobs.append(job_cmd)
-            s.add_job(logfolder, repo, change_dir, job_cmd, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude)
+            s.add_job(logfolder, repo, change_dir, job_cmd, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes)
 
 if args.dry:
     for job in jobs:

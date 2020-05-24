@@ -1,43 +1,34 @@
 import itertools
+import gpuscheduler
 import argparse
 import os
 import uuid
 import hashlib
+import glob
+from itertools import product
 
-import numpy as np
-import gpuscheduler
-
-from itertools import product, combinations
 from os.path import join
 
 parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
-parser.add_argument('--scale', action='store_true')
 args = parser.parse_args()
 
-cmd = 'python wrangle_losses.py'
+
+cmd = 'python main.py --data cifar --sde-argconfig ~/git/sde/config/args_config.txt --sde-ip "100.96.161.67"'
 
 args2 = {}
-args2['f'] = 'clean_losses'
-args2['eval'] = 75
-args2['train'] = ''
-args2['data'] = 'all_1.npy'
-args2['norm'] = ''
-args2['cfg-feats'] = ''
 
-
-name = 'all6'
-logfolder = 'interpolation/{0}/'.format(name)
-time_hours = 0
-time_minutes = 20
-cores_per_job = 4
-mem = 24
-num_seeds = 10
+name = 'grid3'
+ckp_name = name
+logfolder = 'sde/{0}/'.format(name)
+#time_hours = 24*2
+cores_per_job = 5
+mem = 32
+num_seeds = 1
 seed_offset = 0
 constraint = ''
-ckp_name = name
-fp16 = False
+gpus = 1
 
 #account = 'cse'
 #account = 'stf'
@@ -47,8 +38,8 @@ fp16 = False
 partition = 'learnfair'
 #partition = 'uninterrupted'
 #partition = 'dev'
-change_dir = 'fairseq_private/'
-repo = 'fairseq_private'
+change_dir = 'sparse_learning/mnist_cifar/'
+repo = 'sparse_learning'
 exclude = ''
 
 s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=partition, use_gres=False)
@@ -57,33 +48,19 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
+fp16 = False
 args3 = {}
-#args3['lbl'] = ['103', '25,50,75,103', '10,15,25,50,75,103']
-args3['lbl'] = ['75']
-args3['epochs'] = [175]
-args3['num-picks'] = [5]
-args3['lr'] = [0.0006]
-args3['hidden-size'] = [1024]
-#args3['wt'] = ['1,2']
-args3['wt'] = ['1,2']
-#args3['wt'] = ['2,3', '3,4', '2,4', '2,3,4']
-#args3['wt'] = ['1,2,3']
-#args3['wt'] = ['1,2,3', '2,3,4', '3,4,5', '4,5,7', '5,7,10', '7,10,15', '10,15,25', '15,25,50', '25,50,75']
-args3['layers'] = [1]
-args3['input-drop'] = [0.0, 0.05]
-args3['dropout'] = [0.1, 0.15, 0.2]
-args3['batch-size'] = [128]
-#args3['max-variation'] = ['dropout','decoder_embed_dim', 'decoder_ffn_embed_dim','decoder_layers', 'attention_dropout']
-#args3['exclude-variation'] = ['dropout','decoder_embed_dim', 'decoder_ffn_embed_dim','decoder_layers', 'attention_dropout']
+args3['sde-subset-size'] = [0.01, 0.05, 0.1, 0.2, 0.5, 1.0]
+args3['epoch'] = ['12 --sde-name cifar10-12-{0} '.format(name), '200 --sde-name cifar10-200-{0} '.format(name)]
+args3['model'] = ['wrn-16-8', 'wrn-22-8', 'alexnet-s', 'alexnet-b']
+args3['l2'] = [5e-04, 5e-05]
 
-#args3['data-format'] = ['seq-len', 'mean', 'exact-seq']
-args3['data-format'] = ['exact-seq']
-#args3['data-format'] = ['seq-len']
-#args3['data-format'] = ['flat']
-args3['seq-len'] = [192]
-#args3[''] = ['linear-feats --cfg-feats', 'linear-feats', 'cfg-feats', '']
-#args3[''] = ['linear-feats --cfg-feats', 'cfg-feats']
 args4 = []
+
+args5 = {}
+args5['wrn'] = {'dropout' : ['0.1 --fp16', '0.2 --fp16', '0.3 --fp16', '0.5 --fp16']}
+time_hours = 6
+time_minutes = 0
 
 args_prod = []
 for key, values in args3.items():
@@ -109,12 +86,22 @@ for seed in range(num_seeds):
     for arg4 in args4:
         if len(args_prod) == 0: args_prod.append(('', ''))
         for i, values in enumerate(args_prod):
-            job_cmd = cmd + ' --seed {0} '.format(seed) + arg4
+            job_cmd = cmd + arg4
             for val in values:
                 job_cmd += ' {0}' .format(val)
+            #job_cmd += ' --checkpoint /checkpoint/timdettmers/{1}/{0}/model.pt'.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
             if not fp16: job_cmd = job_cmd.replace('--fp16', '')
-            jobs.append(job_cmd)
-            s.add_job(logfolder, repo, change_dir, job_cmd, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes)
+            if any([k in job_cmd for k in args5.keys()]):
+                for substr, pdict in args5.items():
+                    if substr in job_cmd:
+                        for key, values in pdict.items():
+                            for v in values:
+                                job_cmd5 = job_cmd + ' --{0} {1}'.format(key, v)
+                                jobs.append(job_cmd5)
+                                s.add_job(logfolder, repo, change_dir, job_cmd5, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
+            else:
+                jobs.append(job_cmd)
+                s.add_job(logfolder, repo, change_dir, job_cmd, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
 
 if args.dry:
     for job in jobs:

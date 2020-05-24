@@ -10,6 +10,7 @@ import datetime
 import shutil
 import time
 import numpy as np
+import copy
 
 from queue import Queue
 from bs4 import BeautifulSoup
@@ -180,7 +181,10 @@ class HyakScheduler(object):
         if self.verbose:
             print('#SBATCH --time={0:02d}:{1:02d}:00'.format(time_hours, time_minutes))
 
-    def run_jobs(self, cmds=[], host2cmd_adds={}):
+    def run_jobs(self, cmds=[], host2cmd_adds={}, as_array=True):
+
+        array_preamble = []
+        array_file = join(self.config['SCRIPT_HISTORY'], 'array_init_{0}.sh'.format(str(uuid.uuid4())))
         for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
             lines = []
             logid = str(uuid.uuid4())
@@ -207,11 +211,17 @@ class HyakScheduler(object):
                 lines.append('#SBATCH --exclude={0}'.format(exclude))
             lines.append('#')
             lines.append('#SBATCH --chdir={0}'.format(join(self.config['GIT_HOME'], work_dir)))
-            lines.append('#SBATCH --output={0}'.format(join(log_path, logid + '.log')))
-            lines.append('#SBATCH --error={0}'.format(join(log_path, logid + '.err')))
+            lines.append('#SBATCH --output={0}'.format(join(log_path, logid + '%A_%a.log')))
+            lines.append('#SBATCH --error={0}'.format(join(log_path, logid + '%A_%a.err')))
             lines.append('')
             lines.append('export PATH=$PATH:{0}'.format(join(self.config['ANACONDA_HOME'], 'bin')))
             lines.append(cmd)
+
+            if len(array_preamble) == 0:
+                array_preamble = copy.deepcopy(lines[:-2])
+                array_preamble.append('#SBATCH --array=0-{0}'.format(len(self.jobs)-1))
+                array_preamble.append('')
+                array_preamble.append('export PATH=$PATH:{0}'.format(join(self.config['ANACONDA_HOME'], 'bin')))
 
             if not os.path.exists(log_path):
                 print('Creating {0}'.format(log_path))
@@ -225,13 +235,38 @@ class HyakScheduler(object):
                 for line in lines:
                     f.write('{0}\n'.format(line))
 
-            time.sleep(0.05)
-            out, err = execute_and_return('sbatch {0}'.format(script_file))
+            if not as_array:
+                time.sleep(0.05)
+                out, err = execute_and_return('sbatch {0}'.format(script_file))
+                if err != '':
+                    print(err)
+
+        if as_array:
+            array_lines = []
+            array_lines.append('')
+            array_lines.append('')
+            for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
+                if i == 0:
+                    array_lines.append('if [[ $SLURM_ARRAY_TASK_ID -eq {0} ]]'.format(i))
+                    array_lines.append('then')
+                else:
+                    array_lines.append('elif [[ $SLURM_ARRAY_TASK_ID -eq {0} ]]'.format(i))
+                    array_lines.append('then')
+                array_lines.append('\t' + cmd)
+
+            array_lines.append('else')
+            array_lines.append('\t echo $SLURM_ARRAY_TASK_ID')
+            array_lines.append('fi')
+
+
+            array_lines = array_preamble + array_lines
+            with open(array_file, 'w') as f:
+                for line in array_lines:
+                    f.write('{0}\n'.format(line))
+
+            out, err = execute_and_return('sbatch {0}'.format(array_file))
             if err != '':
                 print(err)
-
-
-
 
 
 

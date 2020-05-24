@@ -8,4 +8,4 @@ else
 fi
    
 
-sacct -X -u $USER --format="Elapsed,AllocGres,Jobid,State,Account,Partition,NodeList"
+sacct -X -u $USER --format="Elapsed,AllocGres,Jobid%18,State,Account,Partition,NodeList"
