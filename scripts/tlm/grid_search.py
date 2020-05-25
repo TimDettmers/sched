@@ -45,11 +45,11 @@ args2['adapt-span-loss'] = 0.0000005
 args2['word-max-len'] = 15
 args2['batch-sz'] = 64
 args2['nbatches'] = 1000
-args2['batch-split'] = 1
+args2['batch-split'] = 2
 args2['fused-layernorm'] = ''
 args2['init'] = 'xavier_uniform'
 
-name = 'grid1'
+name = 'grid2'
 ckp_name = name
 logfolder = 'tlm/{0}/'.format(name)
 #time_hours = 24*2
@@ -57,7 +57,7 @@ cores_per_job = gpus*4
 mem = 128
 num_seeds = 1
 seed_offset = 0
-constraint = 'volta'
+constraint = 'volta32gb'
 
 #account = 'cse'
 #account = 'stf'

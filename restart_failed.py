@@ -11,6 +11,7 @@ parser.add_argument('--include-failed', action='store_true', help='Includes fail
 parser.add_argument('--state', type=str, default='' ,help='If set only restarts jobs with a specific status: {FAILED,PREEMPTED,TIMEOUT}.')
 parser.add_argument('--days-back', type=int, default=1 ,help='How long in the history to look for failed jobs.')
 parser.add_argument('--restart-cancelled', action='store_true', help='Restarts cancelled jobs.')
+parser.add_argument('--verbose', action='store_true', help='Prints commands with script names')
 
 args = parser.parse_args()
 
@@ -104,4 +105,12 @@ for scriptid in restarts:
     else:
         data = script2data[scriptid]
         print('Originally: Job {0} with State {1} on NodeList {2}'.format(*data[-3:]))
+        if args.verbose:
+            script, array_id, jobstr, state, node = data
+            if 'array_jobs' in script:
+                with open(script) as f:
+                    lines = f.readlines()
+                script = lines[array_id].strip()
+            cmd = 'sbatch --exclude={1} {0}'.format(script, ','.join(banned))
+            print(cmd)
 

@@ -2,10 +2,12 @@
 
 if [ -z $1 ]
 then
-  USER="timdettmers"
+  days_back=0
 else
-  USER=$1
+  days_back=$1
 fi
    
+query_date=$(date --date="-$days_back day" -I)
 
-sacct -X -u $USER --format="Elapsed,AllocGres,Jobid%18,State,Account,Partition,NodeList"
+
+sacct -X --format="Elapsed,AllocGres,Jobid%18,State,Account,Partition,NodeList" -S $query_date

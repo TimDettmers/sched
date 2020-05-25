@@ -87,8 +87,10 @@ for folder in folders:
                     if not line.startswith('Namespace('):
                         line = line[line.find('Namespace('):]
                     if args.namespaces:
-                        idx = line.index('seed')
-                        hsh = line[:idx] + line[idx+6:] 
+                        hsh = line
+                        if 'seed' in line:
+                            idx = line.index('seed')
+                            hsh = line[:idx] + line[idx+6:] 
                         if line not in namespaces:
                             print(bcolors.OKGREEN + hsh + bcolors.ENDC)
                             namespaces.add(hsh)
