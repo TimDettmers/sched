@@ -190,7 +190,7 @@ class HyakScheduler(object):
         script_list = []
         for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
             lines = []
-            script_file = join(self.config['SCRIPT_HISTORY'], 'init_{0}_1.sh'.format(array_id, i))
+            script_file = join(self.config['SCRIPT_HISTORY'], 'init_{0}_{1}.sh'.format(array_id, i))
             script_list.append(script_file)
             log_path = join(join(self.config['LOG_HOME'], path))
             lines.append('#!/bin/bash')
@@ -209,14 +209,15 @@ class HyakScheduler(object):
             else:
                 lines.append('#SBATCH --gpus-per-node={0}'.format(gpus))
             lines.append('#SBATCH --mem={0}G'.format(mem))
-            lines.append('#SBATCH --constraint={0}'.format(constraint))
+            if len(constraint) > 0:
+                lines.append('#SBATCH --constraint={0}'.format(constraint))
             if exclude != '':
                 lines.append('#SBATCH --exclude={0}'.format(exclude))
             lines.append('#')
             lines.append('#SBATCH --open-mode=append')
             lines.append('#SBATCH --chdir={0}'.format(join(self.config['GIT_HOME'], work_dir)))
-            lines.append('#SBATCH --output={0}'.format(join(log_path, array_id + '_{0}.log'.format(i)))
-            lines.append('#SBATCH --error={0}'.format(join(log_path, array_id + '_{0}.err'.format(i)))
+            lines.append('#SBATCH --output={0}'.format(join(log_path, array_id + '_{0}.log'.format(i))))
+            lines.append('#SBATCH --error={0}'.format(join(log_path, array_id + '_{0}.err'.format(i))))
             lines.append('')
             lines.append('export PATH=$PATH:{0}'.format(join(self.config['ANACONDA_HOME'], 'bin')))
             lines.append(cmd)
@@ -267,10 +268,12 @@ class HyakScheduler(object):
 
 
             array_lines = array_preamble + array_lines
+            print('Writing array file to: {0}'.format(array_file))
             with open(array_file, 'w') as f:
                 for line in array_lines:
                     f.write('{0}\n'.format(line))
 
+            print('Writing job list to: {0}'.format(array_job_list))
             with open(array_job_list, 'w') as f:
                 for line in script_list:
                     f.write('{0}\n'.format(line))

@@ -18,26 +18,26 @@ args = parser.parse_args()
 cmd = 'python fit_loss_data.py --sde-verbose'
 
 
-name = 'test'
+name = 'loss_grid24'
 ckp_name = name
 logfolder = 'sde/{0}/'.format(name)
 cores_per_job = 5
-mem = 32
-num_seeds = 10
+mem = 128
+num_seeds = 3
 seed_offset = 0
 constraint = ''
 gpus = 1
 time_hours = 0
-time_minutes = 5
+time_minutes = 240
 
 #account = 'cse'
 #account = 'stf'
 #account = 'ark'
 #partition = 'scavenge'
 #partition = 'scavenge,learnfair'
-#partition = 'learnfair'
+partition = 'learnfair'
 #partition = 'uninterrupted'
-partition = 'dev'
+#partition = 'dev'
 change_dir = 'sparse_learning/mnist_cifar/'
 repo = 'sparse_learning'
 exclude = ''
@@ -48,26 +48,49 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 
 # basic arguments
 args2 = {}
-args2['sde-num-picks'] = 5
-args2['sde-name'] = 'cifar10-12-grid3'
+#args2['sde-num-picks'] = 5
+args2['sde-folder'] = 'hook_data/cifar10-200-full-grid_full7/'
+#args2['sde-folder'] = 'hook_data/cifar10-12-loss-grid_full1/'
+args2['folder-to'] = 'hook_data/cifar10-200-full-grid_full7/'
+args2['sde-restrict'] = 'model=models-mobilev2'
+#args2['sde-use-config-feats'] = ''
+args2['sde-remove-outliers'] = ''
+#args2['sde-normalizer'] =  'std'
+#args2['sde-use-encoder'] = ''
+#args2['sde-use-model-feats'] = ''
+#args2['sde-model-feat-type'] = 'one-hot-int'
 
 # grid search arguments
 args3 = {}
 args3['sde-batch-size'] = [128]
-args3['sde-epochs'] = [15]
-args3['sde-lr'] = [0.003]
-args3['sde-dropout'] = [0.1]
-args3['sde-layers'] = [2]
-args3['sde-hidden-size'] = [2048]
+args3['sde-epochs'] = [75]
+args3['sde-lr'] = [0.0006]
+args3['sde-dropout'] = [0.2]
+args3['sde-layers'] = [1]
+args3['sde-hidden-size'] = [1024]
 args3['sde-input-drop'] = [0.0]
-args3['sde-min-lr'] = [1e-05]
-args3['subset-from'] = [0.01, 0.05, 0.1, 0.2]
+args3['sde-min-lr'] = [1e-06]
+args3['subset-from'] = [0.1]
+args3['sde-num-picks'] = [200]
+args3['sde-use-config-feats'] = []
+#args3['sde-remove-outliers'] = []
+args3['sde-normalizer'] =  ['std']
+args3['sde-use-encoder'] = []
+args3['sde-use-model-feats'] = []
+args3['sde-limit'] = [3000, -1]
+args3['sde-k-shot-eval'] = [1]
+args3['sde-use-emb'] = []
+args3['sde-use-config-feats'] = ''
+args3['sde-input-transform'] = ['logsoftmax', 'softmax', 'none']
+args3['sde-output-transform'] = ['logsoftmax', 'softmax', 'crossentropy']
+
 
 # conditional grid search arguments
 args4 = []
 
 # string matching conditional grid search arguments
 args5 = {}
+args5['sde-use-model-feats'] = {'sde-model-feat-type': ['one-hot-int', 'continuous']}
 
 
 for key, value in args2.items():
@@ -77,6 +100,8 @@ args_prod = []
 for key, values in args3.items():
     if len(key) == 0:
         keyvalues = [' --{0}'.format(v) if len(v) > 0 else '{0}'.format(v) for v in values]
+    elif len(values) == 0:
+        keyvalues = [' --{0}'.format(key), ' ']
     else:
         keyvalues = [' --{0} {1}'.format(key, v) for v in values]
     args_prod.append(keyvalues)

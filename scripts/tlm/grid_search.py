@@ -34,7 +34,7 @@ args2['char-nheads'] = 8
 args2['char-attn-span'] = 8192
 args2['char-block-sz'] = 512
 args2['char-vocab-size'] = 33
-args2['lr'] = 0.07
+#args2['lr'] = 0.07
 args2['momentum'] =  0
 args2['dropout'] = 0.3
 args2['optim'] = 'adagrad'
@@ -45,11 +45,12 @@ args2['adapt-span-loss'] = 0.0000005
 args2['word-max-len'] = 15
 args2['batch-sz'] = 64
 args2['nbatches'] = 1000
-args2['batch-split'] = 2
+#args2['batch-split'] = 2
 args2['fused-layernorm'] = ''
-args2['init'] = 'xavier_uniform'
+#args2['init'] = 'xavier_uniform'
+args2['norm-comb-embs'] = ''
 
-name = 'grid2'
+name = 'grid4'
 ckp_name = name
 logfolder = 'tlm/{0}/'.format(name)
 #time_hours = 24*2
@@ -79,11 +80,12 @@ for key, value in args2.items():
 
 fp16 = True
 args3 = {}
-#args3['init'] = ['xavier_uniform', 'sparse --init-sparsity 0.1']
-#args3[''] = ['norm-comb-embs', '']
+args3['init'] = ['sparse --init-sparsity 0.1']
+args3['lr'] = [0.07]#, 0.05]
+args3['batch-split'] = [1]#, 2]
 #args3[''] = ['fused-layernorm', '', 'char-tie-embs', 'fused-layernorm  --char-tie-embs']
-args3['word-nlayers'] = [6,8,10,12]
-args3['char-nlayers'] = [2,4,6]
+args3['word-nlayers'] = [10]
+args3['char-nlayers'] = [4]
 
 args4 = []
 time_hours = 72

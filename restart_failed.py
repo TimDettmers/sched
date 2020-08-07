@@ -67,6 +67,8 @@ for l in lines:
 
     if script_id in script2data and state in ['RUNNING', 'COMPLETED', 'PENDING']:
         # job already restarted successfully, no action needed, remove job
+        if args.verbose:
+            print('Script {1} has already been restarted and is running as {0}'.format(jobid, script_id))
         restarts.discard(script_id)
         script2data.pop(script_id)
     if state not in states: continue
@@ -76,6 +78,7 @@ for l in lines:
     if args.state != '' and state != args.state: continue
     restarts.add(script_id)
     script2data[script_id] = (script, array_id, jobstr, state, node)
+    print(script_id)
 
 print('Banned nodes: {0}'.format(','.join(banned)))
 if args.dry:
@@ -112,5 +115,6 @@ for scriptid in restarts:
                     lines = f.readlines()
                 script = lines[array_id].strip()
             cmd = 'sbatch --exclude={1} {0}'.format(script, ','.join(banned))
-            print(cmd)
+            if args.verbose:
+                print(cmd)
 

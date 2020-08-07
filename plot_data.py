@@ -18,10 +18,12 @@ parser.add_argument('--title', type=str, default='', help='Title of the plot.')
 parser.add_argument('--namey', type=str, default='Mean', help='Name of the y-axis')
 parser.add_argument('--categoricalx', action='store_true', help='Treat x variable as categorical')
 parser.add_argument('--median', action='store_true', help='Use median for plotting y-values instead of mean.')
+parser.add_argument('--ci', action='store_true', help='Plot confidence intervals through the value column')
 
 args = parser.parse_args()
 
 args.ploty = 'Median' if args.median else args.ploty
+args.ploty = 'Value' if args.ci else args.ploty
 
 df = pd.read_csv(args.csv)
 
@@ -46,13 +48,12 @@ else:
     #plt.errorbar(x=df[args.plotx], y=df[args.ploty], fmt='none', xerror=df['SE'], ecolor='k', elinewidth=2)
     print(df[args.plotx])
     print(df[args.ploty])
-    print(df['SE'])
     if args.categoricalx:
-        ax = sns.catplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full', kind='point')
+        ax = sns.catplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full', kind='point', ci=95.0 if args.ci else None)
         plt.subplots_adjust(top=0.9)
         ax.fig.suptitle(args.title, fontsize=18)
     else:
-        sns.lineplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full')
+        sns.lineplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full', ci=95.0 if args.ci else None)
 
 plt.ylabel(args.namey, fontsize=13)
 plt.savefig(args.out)

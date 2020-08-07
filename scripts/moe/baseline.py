@@ -16,20 +16,62 @@ parser.add_argument('--verbose', action='store_true')
 args = parser.parse_args()
 
 
-cmd = 'MKL_THREADING_LAYER=GNU python main.py --data cifar --sde-argconfig ~/git/sde/config/args_config.txt'
+cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed   --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints'
+
+#cmd += ' data/wikitext-2'
+gpus = 2
 
 args2 = {}
+args2['no-save'] = ''
+#args2['warmup-updates'] = 400
+args2['optimizer'] = 'lamb'
+#args2['optimizer'] = 'adam'
+#args2['adam-betas'] = "'(0.9, 0.98)'"
 
-name = 'grid_full7'
+args2['max-tokens'] = 2048
+args2['update-freq'] = 1
+
+args2['clip-norm'] = 0.0003
+#args2['weight-decay'] = 1e-07
+#args2['dropout'] = 0.35
+#args2['attention-dropout'] = 0.2
+#args2['activation-dropout'] = 0.0
+# seq length
+args2['tokens-per-sample'] = 128
+args2['lr-scheduler'] = 'inverse_sqrt'
+
+#args2['lr-period-updates'] = 270000
+#args2['max-lr'] = 1.0
+#args2['max-update'] = 25000//gpus
+args2['min-lr'] = 1e-09
+args2['warmup-init-lr'] = 1e-07
+#args2['lr'] = 0.0007
+args2['decoder-embed-dim'] = 128
+args2['decoder-ffn-embed-dim'] = 512
+args2['decoder-input-dim'] = 512
+args2['decoder-output-dim'] = args2['decoder-input-dim']
+args2['decoder-layers'] = 4
+args2['arch'] = 'transformer_lm'
+args2['decoder-attention-heads'] = 4
+args2['criterion'] = 'moe_cross_entropy'
+args2['fp16-no-flatten-grads'] = ''
+#args2['adaptive-input-cutoff'] = '20000,60000'
+#args2['adaptive-softmax-cutoff'] '20000,60000'
+#args2['share-decoder-input-output-embed'] = ''
+#args2['criterion'] = 'adaptive_loss'
+#args2['decoder-input-dim'] = 1200
+#args2['decoder-output-dim'] = 1200
+
+
+name = 'grid9'
 ckp_name = name
-logfolder = 'sde/{0}/'.format(name)
+logfolder = 'moe/{0}/'.format(name)
 #time_hours = 24*2
-cores_per_job = 5
-mem = 32
-num_seeds = 10
+cores_per_job = 5*gpus
+mem = 32*gpus
+num_seeds = 1
 seed_offset = 0
 constraint = ''
-gpus = 1
 
 #account = 'cse'
 #account = 'stf'
@@ -39,8 +81,8 @@ gpus = 1
 partition = 'learnfair'
 #partition = 'uninterrupted'
 #partition = 'dev'
-change_dir = 'sparse_learning/mnist_cifar/'
-repo = 'sparse_learning'
+change_dir = 'fairseq_private/'
+repo = 'fairseq_private'
 exclude = ''
 
 s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=partition, use_gres=False)
@@ -49,22 +91,39 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 for key, value in args2.items():
     cmd = cmd + ' --{0} {1}'.format(key, value)
 
-folder = './hook_data/cifar10-{0}-{1}-{2}'
 
-fp16 = False
+fp16 = True
 args3 = {}
-args3['sde-subset-size'] = [0.1, 1.0]
-args3['model'] = ['wrn-16-8', 'wrn-22-8', 'alexnet-s', 'alexnet-b','models-dense','models-efficient','models-google','models-mobile','models-regnext-200','models-regnext-400','models-preact-18 --lr 0.01','models-preact-50 --lr 0.01','models-resnet-18','models-resnet-50 --lr 0.01','models-resnext-2','models-shufflev2','models-dpn-26 --lr 0.01', 'models-mobilev2']
+#args3['num-experts'] = [8]
+#args3['experts-per-seq'] = [7]
+#args3['moe-freq'] = [5]
+#args3['bloss-weight'] = [6.0, 10.0]
+#args3['moe-noise-type'] = ['additive', 'full', 'none', 'seq-additive']
+#args3['bloss-type'] = ['cv']
+args3['lr'] = [0.006]
+args3['weight-decay'] = [1e-06]
+args3['dropout'] = [0.0, 0.1]
+args3['attention-dropout'] = [0.0, 0.1, 0.2]
+args3['activation-dropout'] = [0.1, 0.0]
+args3['lamb-betas'] = ["'(0.9, 0.999)'"]
+#args3['expert-compute-type'] = ['iter']
+#args3['lamb-betas'] = ["'(0.9, 0.999)'"]
+#args3['moe-noise-init'] = ['0', 'xavier']
+#args3['warmup-updates'] = [500]
+#args3['max-update'] = [15000//gpus]
+#args3['dataset'] = ['data/wikitext-2', 'data/wikitext-5']
+#args3['decoder-layers'] = [8, 16]
+#args3['decoder-attention-heads'] = [8, 16]
+
+
+
 
 args4 = []
-for epoch, metric in product([25, 200], ['full']):
-    folder_name = folder.format(epoch, metric, name)
-    args4.append(' --epochs {0} --metric {1} --sde-folder {2} '.format(epoch, metric, folder_name))
-
+args4.append(' --max-update {0} data/wikitext-2 --warmup-updates 500 '.format(25000//gpus))
+args4.append(' --max-update {0} data/wikitext-5 --warmup-updates 2000 '.format(50000//gpus))
+args4.append(' --max-update {0} data/wikitext-10 --warmup-updates 5000 '.format(100000//gpus))
 args5 = {}
-args5['wrn'] = {'dropout' : ['0.3 --fp16']}
-args5['models-'] = {'fp16' : ['']}
-time_hours = 12
+time_hours = 8
 time_minutes = 0
 
 args_prod = []
@@ -103,10 +162,14 @@ for seed in range(num_seeds):
                             for v in values:
                                 job_cmd5 = job_cmd + ' --{0} {1}'.format(key, v)
                                 job_cmd5 = job_cmd5 + ' --seed {0}'.format(seed)
+                                save_path = ' --save-dir /checkpoint/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd5).encode('utf-8')).hexdigest(), ckp_name)
+                                job_cmd5 = job_cmd5 + save_path
                                 jobs.append(job_cmd5)
                                 s.add_job(logfolder, repo, change_dir, job_cmd5, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
             else:
                 job_cmd = job_cmd + ' --seed {0}'.format(seed)
+                save_path = ' --save-dir /checkpoint/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
+                job_cmd = job_cmd + save_path
                 jobs.append(job_cmd)
                 s.add_job(logfolder, repo, change_dir, job_cmd, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
 
@@ -116,6 +179,7 @@ if args.dry:
     print('total jobs', len(jobs))
     print('Jobs will be written to: {0}'.format(logfolder))
     print('Jobs will be run on: {0}'.format(partition))
+    print('Run in folder: {0}'.format(change_dir))
 
 if not args.dry:
     s.run_jobs()

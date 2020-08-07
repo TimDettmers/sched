@@ -56,6 +56,7 @@ parser.add_argument('--csv', type=str, default='', help='Prints all argparse arg
 parser.add_argument('--lower-is-better', action='store_true', help='Whether a lower metric is better.')
 parser.add_argument('--vim', action='store_true', help='Prints a vim command to open the files for the presented results')
 parser.add_argument('--vim-mode', type=str, default='one', help='Select vim print options: {one, all}. Use "one" for one file per seed or all for all of them.')
+parser.add_argument('--no-agg', action='store_true', help='No aggregation is done. This is useful for building seaborn confidence intervals.')
 
 args = parser.parse_args()
 
@@ -113,11 +114,11 @@ for folder in folders:
 
                     if multimatch:
                         metric = float(matches[0])
-                        if args.lower_is_better and metric < groups[config][-1]:
+                        if args.lower_is_better and metric < groups[tuple(config)][-1]:
                             #print(metric, groups[config][-1])
-                            groups[config][-1] = metric
-                        elif not args.lower_is_better and metric > groups[config][-1]:
-                            groups[config][-1] = metric
+                            groups[tuple(config)][-1] = metric
+                        elif not args.lower_is_better and metric > groups[tuple(config)][-1]:
+                            groups[tuple(config)][-1] = metric
                         if args.name:
                             names[-1] = (names[-1][0], groups[config][-1])
                     else:
@@ -181,9 +182,10 @@ idx = np.argsort(metrics)
 if args.lower_is_better:
     idx = idx[::-1]
 
+columns = []
 for i in idx:
     config = keys[i]
-    if any([v!=config[idx][1] for idx, v in filters.items()]): continue
+    if any([v!=config[idx][1] for idx, v in filters.items() if idx < len(config)]): continue
     if args.partial != '':
         vals = [v for k,v in config]
         skip = True
@@ -219,15 +221,23 @@ for i in idx:
         print('='*80)
         print('Summary for config {0}:'.format(config))
         row = []
+        if len(columns) == 0:
+            for key, value in config:
+                columns.append(key)
         for key, value in config:
             row.append(value)
-        row.append(m)
-        row.append(se)
-        row.append(np.median(data))
-        row.append(m-conf95)
-        row.append(m+conf95)
-        row.append(len(data))
-        pandas_data.append(row)
+
+        if args.no_agg:
+            for d in data:
+                pandas_data.append(row + [d])
+        else:
+            row.append(m)
+            row.append(se)
+            row.append(np.median(data))
+            row.append(m-conf95)
+            row.append(m+conf95)
+            row.append(len(data))
+            pandas_data.append(row)
 
         if len(data) == 1:
             print('Metric mean value (SE): {0:.3f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}'.format(m, m-float('NaN'), m+float('NaN'), len(data), float('NaN')))
@@ -246,15 +256,15 @@ if args.vim and args.vim_mode == 'all':
     print('vim {0}'.format(' '.join(logs)))
 
 if args.csv != '':
-    columns = []
-    for key, value in config:
-        columns.append(key)
-    columns.append('Mean')
-    columns.append('SE')
-    columns.append('Median')
-    columns.append('CI lower')
-    columns.append('CI upper')
-    columns.append('n')
+    if args.no_agg:
+        columns.append('Value')
+    else:
+        columns.append('Mean')
+        columns.append('SE')
+        columns.append('Median')
+        columns.append('CI lower')
+        columns.append('CI upper')
+        columns.append('n')
     df = pd.DataFrame(pandas_data, columns=columns)
     df.to_csv(args.csv)
 
