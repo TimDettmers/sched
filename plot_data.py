@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import argparse
@@ -19,11 +20,15 @@ parser.add_argument('--namey', type=str, default='Mean', help='Name of the y-axi
 parser.add_argument('--categoricalx', action='store_true', help='Treat x variable as categorical')
 parser.add_argument('--median', action='store_true', help='Use median for plotting y-values instead of mean.')
 parser.add_argument('--ci', action='store_true', help='Plot confidence intervals through the value column')
+parser.add_argument('--swarm', action='store_true', help='Plot swarm instead of confidence intervals')
+parser.add_argument('--tick-rotation', type=int, default=0, help='By how much to rotate the x-axis label')
 
 args = parser.parse_args()
 
 args.ploty = 'Median' if args.median else args.ploty
 args.ploty = 'Value' if args.ci else args.ploty
+args.ploty = 'Value' if args.swarm else args.ploty
+if args.out == '': args.out = args.csv.replace('csv','png')
 
 df = pd.read_csv(args.csv)
 
@@ -37,6 +42,8 @@ for f in filter_keys:
 if args.print:
     print(df)
 
+if not os.path.exists(os.path.dirname(args.out)):
+    os.makedirs(os.path.dirname(args.out))
 #plt.ylim(0.0, 1.0)
 #plt.xlim(0, 1050)
 
@@ -46,14 +53,16 @@ if args.category == '':
 else:
     num_values = np.unique(df[args.category]).size
     #plt.errorbar(x=df[args.plotx], y=df[args.ploty], fmt='none', xerror=df['SE'], ecolor='k', elinewidth=2)
-    print(df[args.plotx])
-    print(df[args.ploty])
     if args.categoricalx:
-        ax = sns.catplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full', kind='point', ci=95.0 if args.ci else None)
+        if args.swarm:
+            ax = sns.catplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full', kind='swarm')
+        else:
+            ax = sns.catplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full', kind='point', ci=95.0 if args.ci else None, err_style='bars')
         plt.subplots_adjust(top=0.9)
         ax.fig.suptitle(args.title, fontsize=18)
+        ax.set_xticklabels(rotation=args.tick_rotation)
     else:
-        sns.lineplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full', ci=95.0 if args.ci else None)
+        sns.lineplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full', ci=95.0 if args.ci else None, err_style='bars')
 
 plt.ylabel(args.namey, fontsize=13)
-plt.savefig(args.out)
+plt.savefig(args.out, bbox_inches='tight')

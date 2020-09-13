@@ -11,6 +11,7 @@ import shutil
 import time
 import numpy as np
 import copy
+import hashlib
 
 from queue import Queue
 from bs4 import BeautifulSoup
@@ -176,19 +177,23 @@ class HyakScheduler(object):
 
 
 
-    def add_job(self, path, repo_dir, work_dir, cmd, time_hours, fp16=False, gpus=1, mem=32, cores=6, constraint='volta', exclude='', time_minutes=0):
-        self.jobs.append([path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes])
+    def add_job(self, path, repo_dir, work_dir, cmds, time_hours, fp16=False, gpus=1, mem=32, cores=6, constraint='volta', exclude='', time_minutes=0):
+        self.jobs.append([path, work_dir, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes])
         if self.verbose:
             print('#SBATCH --time={0:02d}:{1:02d}:00'.format(time_hours, time_minutes))
 
-    def run_jobs(self, cmds=[], host2cmd_adds={}, as_array=True):
+    def run_jobs(self, as_array=True, sleep_delay_seconds=0):
 
         array_preamble = []
+
         array_id = str(uuid.uuid4())
+        array_id = hashlib.md5(str(self.jobs[0][2]).encode('utf-8')).hexdigest()
+
         array_file = join(self.config['SCRIPT_HISTORY'], 'array_init_{0}.sh'.format(array_id))
         array_job_list = join(self.config['SCRIPT_HISTORY'], 'array_jobs_{0}.sh'.format(array_id))
         script_list = []
-        for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
+        for i, (path, work_dir, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
+            if not isinstance(cmds, list): cmds = [cmds]
             lines = []
             script_file = join(self.config['SCRIPT_HISTORY'], 'init_{0}_{1}.sh'.format(array_id, i))
             script_list.append(script_file)
@@ -220,10 +225,12 @@ class HyakScheduler(object):
             lines.append('#SBATCH --error={0}'.format(join(log_path, array_id + '_{0}.err'.format(i))))
             lines.append('')
             lines.append('export PATH=$PATH:{0}'.format(join(self.config['ANACONDA_HOME'], 'bin')))
-            lines.append(cmd)
+            for cmd_no, cmd in enumerate(cmds):
+                lines.append('echo "cmd{0}"'.format(cmd_no))
+                lines.append(cmd)
 
             if len(array_preamble) == 0:
-                array_preamble = copy.deepcopy(lines[:-2])
+                array_preamble = copy.deepcopy(lines[:-(2*len(cmds) + 1)])
                 array_preamble[2] = '#SBATCH --job-name={0}'.format(array_job_list)
                 array_preamble[-3] = '#SBATCH --output={0}'.format(join(log_path, array_id + '_%a.log'))
                 array_preamble[-2] = '#SBATCH --error={0}'.format(join(log_path, array_id + '_%a.err'))
@@ -253,14 +260,18 @@ class HyakScheduler(object):
             array_lines = []
             array_lines.append('')
             array_lines.append('')
-            for i, (path, work_dir, cmd, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
+            for i, (path, work_dir, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
                 if i == 0:
                     array_lines.append('if [[ $SLURM_ARRAY_TASK_ID -eq {0} ]]'.format(i))
                     array_lines.append('then')
                 else:
                     array_lines.append('elif [[ $SLURM_ARRAY_TASK_ID -eq {0} ]]'.format(i))
                     array_lines.append('then')
-                array_lines.append('\t' + cmd)
+                array_lines.append('\t sleep {0}'.format(i*sleep_delay_seconds))
+
+                for cmd_no, cmd in enumerate(cmds):
+                    array_lines.append('\t echo "cmd{0}"'.format(cmd_no))
+                    array_lines.append('\t ' + cmd)
 
             array_lines.append('else')
             array_lines.append('\t echo $SLURM_ARRAY_TASK_ID')

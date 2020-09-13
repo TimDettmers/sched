@@ -4,6 +4,7 @@ import numpy as np
 import argparse
 import re
 import difflib
+import copy
 from os.path import join
 import pandas as pd
 import operator
@@ -54,9 +55,13 @@ parser.add_argument('--namespaces', action='store_true', help='Prints all argpar
 parser.add_argument('--diff', action='store_true', help='Prints all argparse arguments with differences.')
 parser.add_argument('--csv', type=str, default='', help='Prints all argparse arguments with differences.')
 parser.add_argument('--lower-is-better', action='store_true', help='Whether a lower metric is better.')
+parser.add_argument('--always-last', action='store_true', help='Whether to always overwrite the metric with the last value encountered.')
 parser.add_argument('--vim', action='store_true', help='Prints a vim command to open the files for the presented results')
 parser.add_argument('--vim-mode', type=str, default='one', help='Select vim print options: {one, all}. Use "one" for one file per seed or all for all of them.')
 parser.add_argument('--no-agg', action='store_true', help='No aggregation is done. This is useful for building seaborn confidence intervals.')
+parser.add_argument('--exclude', type=float, default=None, help='Exclude individual results above or below this value')
+parser.add_argument('--exclude-inverse', action='store_true', help='Exclude the results better than the exclude metric.')
+parser.add_argument('--mean-metrics', action='store_true', help='Takes the mean of all metrics gathered in a single log file.')
 
 args = parser.parse_args()
 
@@ -80,6 +85,9 @@ namespaces = set()
 for folder in folders:
     fdata[folder] = []
     for log_name in glob.iglob(join(folder, '*.log')):
+        has_error = False
+        if os.stat(log_name.replace('.log','.err')).st_size > 0: has_error = True
+
         with open(log_name, 'r') as f:
             multimatch = False
             config = None
@@ -97,6 +105,8 @@ for folder in folders:
                             namespaces.add(hsh)
                     matches = re.findall(r'(?!^\()([^=,]+)=([^\0]+?)(?=,[^,]+=|\)$)', line[len('Namespace('):])
                     config = []
+                    if 'has_error' in groupby:
+                        config.append(('has_error', str(has_error)))
                     for m in matches:
                         if m[0].strip() in groupby:
                             config.append((m[0].strip(), m[1].strip().replace(')','').replace("'", '')))
@@ -112,9 +122,15 @@ for folder in folders:
                     if tuple(config) not in cfg2logs: cfg2logs[tuple(config)] = []
                     cfg2logs[tuple(config)].append(log_name)
 
+                    metric = float(matches[0])
                     if multimatch:
-                        metric = float(matches[0])
-                        if args.lower_is_better and metric < groups[tuple(config)][-1]:
+                        if args.mean_metrics:
+                            if not isinstance(groups[tuple(config)][-1], list):
+                                groups[tuple(config)][-1] = [groups[tuple(config)][-1]]
+                            groups[tuple(config)][-1].append(metric)
+                        elif args.always_last:
+                            groups[tuple(config)][-1] = metric
+                        elif args.lower_is_better and metric < groups[tuple(config)][-1]:
                             #print(metric, groups[config][-1])
                             groups[tuple(config)][-1] = metric
                         elif not args.lower_is_better and metric > groups[tuple(config)][-1]:
@@ -130,6 +146,26 @@ for folder in folders:
                         if args.name:
                             names.append((join(folder, log_name), groups[config][-1]))
                         multimatch = True
+
+        if config is None: continue
+        if tuple(config) in groups and isinstance(groups[tuple(config)][-1], list):
+            groups[tuple(config)][-1] = np.mean(groups[tuple(config)][-1])
+        if args.exclude is not None:
+            if tuple(config) in groups:
+                metrics = groups[tuple(config)]
+                pop = False
+                i = 0
+                while i < len(metrics):
+                    metric = metrics[i]
+                    if metric > args.exclude and args.lower_is_better and not args.exclude_inverse: pop = True
+                    if metric < args.exclude and not args.lower_is_better and not args.exclude_inverse: pop = True
+                    if metric < args.exclude and args.lower_is_better and args.exclude_inverse: pop = True
+                    if metric > args.exclude and not args.lower_is_better and args.exclude_inverse: pop = True
+
+                    if pop:
+                        groups[tuple(config)].pop(i)
+                    else:
+                        i += 1
 if args.name:
     sorted_x = sorted(names, key=operator.itemgetter(1), reverse=True)
     for path, score in sorted_x:
@@ -168,7 +204,6 @@ if len(keys) > 0:
 for idx in order:
     keys = sorted(keys, key=lambda x: x[idx])
 
-pandas_data = []
 logs = []
 metrics = []
 for config in keys:
@@ -178,11 +213,15 @@ for config in keys:
     else:
         m = 0.0
     metrics.append(m)
-idx = np.argsort(metrics)
-if args.lower_is_better:
-    idx = idx[::-1]
+if args.orderby == '':
+    idx = np.argsort(metrics)
+    if args.lower_is_better:
+        idx = idx[::-1]
+else:
+    idx = range(len(metrics))
 
-columns = []
+pandas_pairs = []
+pandas_columns = set()
 for i in idx:
     config = keys[i]
     if any([v!=config[idx][1] for idx, v in filters.items() if idx < len(config)]): continue
@@ -210,7 +249,7 @@ for i in idx:
         elif args.vim_mode == 'all':
             logs += cfg2logs[config]
         elif args.vim_mode == 'config':
-            logs = cfg2logs[config]
+            logs = set(cfg2logs[config])
         else:
             print(args.vim_mode)
             raise NotImplementedError('Vim print mode not implemented')
@@ -220,24 +259,25 @@ for i in idx:
         conf95 = 1.96*se
         print('='*80)
         print('Summary for config {0}:'.format(config))
-        row = []
-        if len(columns) == 0:
-            for key, value in config:
-                columns.append(key)
         for key, value in config:
-            row.append(value)
+            pandas_columns.add(key)
 
         if args.no_agg:
+            pandas_columns.add('Value')
             for d in data:
-                pandas_data.append(row + [d])
+                cfg = dict(copy.copy(config))
+                cfg['Value'] = d
+                pandas_pairs.append(cfg)
         else:
-            row.append(m)
-            row.append(se)
-            row.append(np.median(data))
-            row.append(m-conf95)
-            row.append(m+conf95)
-            row.append(len(data))
-            pandas_data.append(row)
+            pandas_columns.update(['Mean', 'SE', 'Median', 'CI Lower', 'CI Upper', 'n'])
+            cfg = dict(copy.copy(config))
+            cfg['Mean'] = m
+            cfg['SE'] = se
+            cfg['Median'] = np.median(data)
+            cfg['CI Lower'] = m-conf95
+            cfg['CI Upper'] = m+conf95
+            cfg['n'] = len(data)
+            pandas_pairs.append(cfg)
 
         if len(data) == 1:
             print('Metric mean value (SE): {0:.3f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}'.format(m, m-float('NaN'), m+float('NaN'), len(data), float('NaN')))
@@ -256,15 +296,21 @@ if args.vim and args.vim_mode == 'all':
     print('vim {0}'.format(' '.join(logs)))
 
 if args.csv != '':
-    if args.no_agg:
-        columns.append('Value')
-    else:
-        columns.append('Mean')
-        columns.append('SE')
-        columns.append('Median')
-        columns.append('CI lower')
-        columns.append('CI upper')
-        columns.append('n')
-    df = pd.DataFrame(pandas_data, columns=columns)
+    if not os.path.exists(os.path.dirname(args.csv)):
+        os.makedirs(os.path.dirname(args.csv))
+
+    columns = list(pandas_columns)
+    data = []
+
+    for cfg in pandas_pairs:
+        row = []
+        for column in columns:
+            if column in cfg:
+                row.append(cfg[column])
+            else:
+                row.append('')
+
+        data.append(row)
+    df = pd.DataFrame(data, columns=columns)
     df.to_csv(args.csv)
 
