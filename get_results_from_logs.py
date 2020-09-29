@@ -9,6 +9,22 @@ from os.path import join
 import pandas as pd
 import operator
 
+# output possible parameters configurations
+# multiple metric via metric file
+# aggregation mode:
+# - max/min/average/last
+# - early stopping
+# regex: start, end, contains
+# error analysis and exclusion
+# csv output generation
+# filter arguments
+# filter by metric
+# sort/group
+# open files in vim
+# change metric precision
+# extra: automatic join, genetic/random search optimization
+
+
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -39,7 +55,6 @@ seqm is a difflib.SequenceMatcher instance whose a & b are strings"""
 
 parser = argparse.ArgumentParser(description='Log file evaluator.')
 parser.add_argument('-f', '--folder-path', type=str, default=None, help='The folder to evaluate if running in folder mode.')
-parser.add_argument('-r', '--recursive', action='store_true', help='Apply folder-path mode to all sub-directories')
 parser.add_argument('--contains', type=str, default='', help='The line of the test metric must contain this string.')
 parser.add_argument('--start', type=str, default='', help='String after which the test score appears.')
 parser.add_argument('--end', type=str, default='\n', help='String before which the test score appears.')
@@ -62,13 +77,15 @@ parser.add_argument('--no-agg', action='store_true', help='No aggregation is don
 parser.add_argument('--exclude', type=float, default=None, help='Exclude individual results above or below this value')
 parser.add_argument('--exclude-inverse', action='store_true', help='Exclude the results better than the exclude metric.')
 parser.add_argument('--mean-metrics', action='store_true', help='Takes the mean of all metrics gathered in a single log file.')
+parser.add_argument('--num-digits', type=int, default=3, help='The significant digits to display for the metric value')
+parser.add_argument('--early-stopping-condition', type=str, default=None, help='If a line with the keyphrase occurs 3 times, the metric gathering is stopped for the log')
+parser.add_argument('--grid-params', action='store_true', help='Outputs the different hyperparameters used in all configs')
 
 args = parser.parse_args()
 
 if args.diff: args.namespaces = True
 
-if args.recursive:
-    folders = [x[0] for x in os.walk(args.folder_path)]
+folders = [x[0] for x in os.walk(args.folder_path)]
 
 regex = re.compile(r'(?<={0}).*(?={1})'.format(args.start, args.end))
 
@@ -91,7 +108,11 @@ for folder in folders:
         with open(log_name, 'r') as f:
             multimatch = False
             config = None
+            early_stopping_count = 0
             for line in f:
+                if args.early_stopping_condition is not None and args.early_stopping_condition in line:
+                    early_stopping_count += 1
+                if early_stopping_count == 3: break
                 if 'Namespace(' in line:
                     if not line.startswith('Namespace('):
                         line = line[line.find('Namespace('):]
@@ -189,17 +210,16 @@ filter_keys = [key.replace('___', ',') for key in filter_keys]
 
 order = []
 filters = {}
+for fkey in filter_keys:
+    k,v = fkey.split('=')
+    filters[k.strip()] = v.strip()
+
 if len(keys) > 0:
     for skey in sort_keys:
         for i, (key, value) in enumerate(keys[0]):
             if key == skey.strip():
                 order.append(i)
 
-    for fkey in filter_keys:
-        for i, (key, value) in enumerate(keys[0]):
-            k,v = fkey.split('=')
-            if key == k.strip():
-                filters[i] = v.strip()
 
 for idx in order:
     keys = sorted(keys, key=lambda x: x[idx])
@@ -224,7 +244,14 @@ pandas_pairs = []
 pandas_columns = set()
 for i in idx:
     config = keys[i]
-    if any([v!=config[idx][1] for idx, v in filters.items() if idx < len(config)]): continue
+    skip = False
+    for key, value in config:
+        if key in filters:
+            if filters[key] != value:
+                skip = True
+                break
+
+    if skip: continue
     if args.partial != '':
         vals = [v for k,v in config]
         skip = True
@@ -280,9 +307,9 @@ for i in idx:
             pandas_pairs.append(cfg)
 
         if len(data) == 1:
-            print('Metric mean value (SE): {0:.3f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}'.format(m, m-float('NaN'), m+float('NaN'), len(data), float('NaN')))
+            print(('Metric mean value (SE): {0:.' + str(args.num_digits) + 'f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}').format(m, m-float('NaN'), m+float('NaN'), len(data), float('NaN')))
         else:
-            print('Metric mean value (SE): {0:.3f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}'.format(m, m-conf95, m+conf95, len(data), se))
+            print(('Metric mean value (SE): {0:.' + str(args.num_digits) + 'f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}').format(m, m-conf95, m+conf95, len(data), se))
         if args.vim and args.vim_mode == 'one':
             print('vim {0}'.format(logs))
         if args.vim and args.vim_mode == 'config':

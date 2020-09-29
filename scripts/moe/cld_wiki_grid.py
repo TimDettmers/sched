@@ -21,11 +21,12 @@ args = parser.parse_args()
 
 
 cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints'
+
 cmd2 = 'MKL_THREADING_LAYER=GNU fairseq-eval-lm --context-window 0 --task language_modeling --max-tokens 2048 --tokens-per-sample 128 --gen-subset {2} --skip-invalid-size-inputs-valid-test --path {1}/checkpoint_best.pt {0}'
 
 args2 = {}
 #baseline
-gpus = 8
+gpus = 2
 
 
 if args.baseline:
@@ -62,16 +63,17 @@ else:
     args2['min-loss-scale'] = 1e-10
 
 
-name = 'grid2'
-logfolder = 'moe/cld/wiki/{0}'.format(name)
+name = 'grid5'
+logfolder = 'moe/cld/scale/wiki/{0}'.format(name)
 ckp_name = logfolder
 #time_hours = 24*2
+
 cores_per_job = 4*gpus
 mem = 32*gpus
 num_seeds = 1
 seed_offset = 0
 constraint = 'volta'
-time_hours = 2
+time_hours = int(48/gpus)
 time_minutes = 0
 
 #account = 'cse'
@@ -79,9 +81,9 @@ time_minutes = 0
 #account = 'ark'
 #partition = 'scavenge'
 #partition = 'scavenge,learnfair'
-#partition = 'learnfair'
+partition = 'learnfair'
 #partition = 'uninterrupted'
-partition = 'dev'
+#partition = 'dev'
 change_dir = 'fairseq_private/'
 repo = 'fairseq_private'
 exclude = ''
@@ -93,12 +95,12 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 #args2['dropout'] = 0.1
 #args2['no-save'] = ''
 args2['tokens-per-sample'] = 128
-args2['weight-decay'] = 0.00
 args2['update-freq'] = 8//gpus
 #args2['update-freq'] = 1
 args2['optimizer'] = 'lamb'
 args2['lamb-betas'] = "'(0.9, 0.999)'"
 args2['fp16-no-flatten-grads'] = ''
+args2['valid-subset'] = 'valid'
 
 
 fp16 = True
@@ -106,12 +108,12 @@ args3 = {}
 
 min_emb_dim = 32
 min_dim = 32
-increment_factor = 2
+increment_factor = 10
 
 if not args.baseline:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'moe-ff-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim')
     args3[key] = []
-    for scale in range(5, 7, increment_factor):
+    for scale in range(8, 32, increment_factor):
         emb_dim = min_emb_dim + (32*scale//4)
         if scale  == 0: scale = 1
         heads = (min_dim*scale)//32
@@ -123,43 +125,56 @@ if not args.baseline:
     args3['num-experts'] = [8]
     args3['experts-per-seq'] = [7]
     args3['moe-freq'] = [2]
-    args3['moe-start-layer'] = [1]
-    #args3['iloss-weight'] = [100000.0, 1000000.0]
-    #args3['bloss-type'] = ['mean-prob', 'mean-prob-seg']
-    args3['bloss-type'] = ['mean-prob']
+    #args3['bloss-type'] = ['mean-prob-seg']
+    #args3['bloss-type'] = ['mean-prob']
     args3['criterion'] = ['moe_cross_entropy']
-    #args3['lr'] = [0.0005, 0.0003, 0.0007]
-    args3[('sample', 'sample-type')] = [(0, 'gumbel'), (1, 'proportional')]
-    args3[('epsilon', 'epsilon-length')] = [(0.0, 1/4), (0.2, 1/4)]
+    args3[('sample', 'sample-type')] = [(1, 'proportional')]
+    args3[('epsilon', 'epsilon-length')] = [(0.0, 1/4)]
     args3['epsilon-min'] = [0.0]
     args3['counter-reset-period'] = [1]
     args3['overflow-fraction'] = [0.0]
-    args3['weight-decay'] = [0.0]
     args3['use-ff-norm'] = [True]
+    args3['no-expert-dropout'] = [True]
     #args3['gate-type'] = ['word-level']
-    args3[('gate-type', 'iloss-weight')] = [('word-level', 100000.0), ('segments', 1000.0)]
+    args3[('gate-type', 'iloss-weight','bloss-type')] = []
+    args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.1, 'mean-prob-seg'))
+    args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.03, 'mean-prob-seg'))
+    args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.06, 'mean-prob-seg'))
+    #args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.1, 'mean-prob-seg'))
+    #args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 1.0, 'mean-prob-seg'))
+    args3[('decoder-layers', 'moe-start-layer')] = [(9, 4), (9, 7), (12, 7), (15, 7)]
 else:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim')
     args3[key] = []
-    for scale in range(5, 10, increment_factor):
+    for scale in range(8, 32, increment_factor):
         emb_dim = min_emb_dim + (32*scale//4)
         if scale  == 0: scale = 1
         heads = (min_dim*scale)//32
         heads = 1 if heads == 0 else heads
         args3[key].append((min_dim*scale, min_dim*scale*4, heads, scale, emb_dim, emb_dim))
+    args3['decoder-layers'] = [9, 12, 15]
 
-args3['dropout'] = [0.0]
-args3['attention-dropout'] = [0.0]#0.1, 0.2]
+args3[('warmup-updates', 'lr')] = [(5000, 0.0006), (10000, 0.001), (10000, 0.0006)]
+args3['dropout'] = [0.0, 0.1]
+args3['attention-dropout'] = [0.1, 0.2]
 args3['clip-norm'] = [0.1]
+args3['weight-decay'] = [0.00]
 #args3[('max-update', 'warmup-updates', '')] = [(30000, 3000, ' data/wikitext-25')]#, (3250, 400, ' data/wikitext-5')]
-args3[('max-update', 'warmup-updates', '')] = [(1250, 125, ' data/cld_wiki_0.25')]
+#args3[('max-update', 'warmup-updates', '')] = []
+args3[('max-update', '')] = []
+#args3[('max-update', 'warmup-updates', '')].append((5000, 500, ' data/cld_wiki_0.1'))
+#args3[('max-update', 'warmup-updates', '')].append((25000, 2500, ' data/cld_wiki_0.25'))
+#args3[('max-update', 'warmup-updates', '')].append((10000, 1000, ' data/cld_wiki_0.1'))
+#args3[('max-update', 'warmup-updates', '')].append((50000, 5000, ' data/cld_wiki_0.5'))
+#args3[('max-update', 'warmup-updates', '')].append((50000, 5000, ' data/cld_wiki_1.0'))
+args3[('max-update', '')].append((50000, ' data/cld_wiki_1.0'))
 #args3[('max-update', 'warmup-updates', '')] = [(4000, 1000, ' data/wikitext-2')]#,(25000, 2000, ' data/wikitext-50')]
 
-data_path = 'data/cld_wiki_0.25'
-valid_subsets = ['valid', 'valid1', 'valid2', 'valid3']
+data_path = 'data/cld_wiki_0.1'
+#valid_subsets = ['valid', 'valid1', 'valid2', 'valid3']
+valid_subsets = []
 
-args3['decoder-layers'] = [3]
-args3['lr'] = [0.006]
+#args3['lr'] = [0.006]
 
 
 

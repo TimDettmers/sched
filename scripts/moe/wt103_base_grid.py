@@ -62,8 +62,8 @@ else:
     args2['min-loss-scale'] = 1e-10
 
 
-name = 'grid10'
-logfolder = 'moe/scaling/test/{0}'.format(name)
+name = 'baseline_wt10'
+logfolder = 'moe/wt/specialization/{0}'.format(name)
 ckp_name = logfolder
 #time_hours = 24*2
 cores_per_job = 4*gpus
@@ -106,12 +106,12 @@ args3 = {}
 
 min_emb_dim = 32
 min_dim = 32
-increment_factor = 2
+increment_factor = 10
 
 if not args.baseline:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'moe-ff-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim')
     args3[key] = []
-    for scale in range(5, 7, increment_factor):
+    for scale in range(8, 40, increment_factor):
         emb_dim = min_emb_dim + (32*scale//4)
         if scale  == 0: scale = 1
         heads = (min_dim*scale)//32
@@ -123,42 +123,45 @@ if not args.baseline:
     args3['num-experts'] = [8]
     args3['experts-per-seq'] = [7]
     args3['moe-freq'] = [2]
-    args3['moe-start-layer'] = [1]
-    args3['iloss-weight'] = [100000.0, 1000000.0]
-    #args3['bloss-type'] = ['mean-prob', 'mean-prob-seg']
-    args3['bloss-type'] = ['mean-prob']
-    args3['criterion'] = ['moe_cross_entropy', 'moe_cross_entropy_margin']
-    #args3['lr'] = [0.0005, 0.0003, 0.0007]
-    args3[('sample', 'sample-type')] = [(0, 'gumbel'), (1, 'gumbel'), (1, 'proportional')]
-    args3[('epsilon', 'epsilon-length')] = [(0.0, 1/4), (0.2, 1/4)]
+    args3['criterion'] = ['moe_cross_entropy']
+    args3[('sample', 'sample-type')] = [(1, 'proportional')]
+    args3[('epsilon', 'epsilon-length')] = [(0.0, 1/4)]
     args3['epsilon-min'] = [0.0]
     args3['counter-reset-period'] = [1]
     args3['overflow-fraction'] = [0.0]
-    args3['weight-decay'] = [0.0]
     args3['use-ff-norm'] = [True]
-    args3['gate-type'] = ['word-level']
+    args3['no-expert-dropout'] = [True]
+
+    args3[('gate-type', 'iloss-weight','bloss-type')] = []
+    args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.1, 'mean-prob-seg'))
+    args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.05, 'mean-prob-seg'))
+    args3[('decoder-layers', 'moe-start-layer')] = [(15, 7)]
 else:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim')
     args3[key] = []
-    for scale in range(5, 10, increment_factor):
+    for scale in range(8, 40, increment_factor):
         emb_dim = min_emb_dim + (32*scale//4)
         if scale  == 0: scale = 1
         heads = (min_dim*scale)//32
         heads = 1 if heads == 0 else heads
         args3[key].append((min_dim*scale, min_dim*scale*4, heads, scale, emb_dim, emb_dim))
+    args3['decoder-layers'] = [15]
 
-args3['dropout'] = [0.0]
-args3['attention-dropout'] = [0.0]#0.1, 0.2]
+args3['dropout'] = [0.0, 0.1, 0.2]
+args3['attention-dropout'] = [0.0, 0.1, 0.2]
 args3['clip-norm'] = [0.1]
 #args3[('max-update', 'warmup-updates', '')] = [(30000, 3000, ' data/wikitext-25')]#, (3250, 400, ' data/wikitext-5')]
+#args3[('max-update', 'warmup-updates', '')] = [(12500, 1250, ' data/wikitext-10'), (25000, 2000, ' data/wikitext-50'), (50000, 5000, ' data/wikitext-103')]
 args3[('max-update', 'warmup-updates', '')] = [(12500, 1250, ' data/wikitext-10')]
 #args3[('max-update', 'warmup-updates', '')] = [(4000, 1000, ' data/wikitext-2')]#,(25000, 2000, ' data/wikitext-50')]
 
 data_path = 'data/wikitext-10'
-valid_subsets = ['valid', 'valid_en', 'valid_es', 'valid_fr']
+valid_subsets = []
 
-args3['decoder-layers'] = [3]
-args3['lr'] = [0.006]
+#args3['decoder-layers'] = [3]
+args3['lr'] = [0.001, 0.003]
+args3['clip-norm'] = [0.1]
+args3['weight-decay'] = [0.00]
 
 
 
@@ -236,7 +239,7 @@ for seed in range(num_seeds):
                                     s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
             else:
                 job_cmd = job_cmd + ' --seed {0}'.format(seed)
-                checkpoint_dir = '/checkpoint/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd5).encode('utf-8')).hexdigest(), ckp_name)
+                checkpoint_dir = '/checkpoint/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
                 save_dir = ' --save-dir {0}'.format(checkpoint_dir)
                 job_cmd = job_cmd + save_dir
                 cmds = [job_cmd]

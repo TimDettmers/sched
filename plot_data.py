@@ -22,6 +22,9 @@ parser.add_argument('--median', action='store_true', help='Use median for plotti
 parser.add_argument('--ci', action='store_true', help='Plot confidence intervals through the value column')
 parser.add_argument('--swarm', action='store_true', help='Plot swarm instead of confidence intervals')
 parser.add_argument('--tick-rotation', type=int, default=0, help='By how much to rotate the x-axis label')
+parser.add_argument('--bottom', type=int, default=None, help='Filter out all the scores except the botton n entries.')
+parser.add_argument('--top', type=int, default=None, help='Filter out all the scores except the top n entries.')
+parser.add_argument('--scale', type=float, default=None, help='Multiply metric by this value.')
 
 args = parser.parse_args()
 
@@ -38,6 +41,23 @@ for f in filter_keys:
     k = k.strip()
     v = v.strip()
     df = df[df[k].astype(str) == v]
+
+if args.bottom is not None or args.top is not None:
+    if args.categoricalx:
+        dfs = []
+        for category in df[str(args.plotx)].unique():
+            dfs.append(df[df[str(args.plotx)] == category].sort_values(by=args.ploty))
+            if args.bottom is not None: dfs[-1] = dfs[-1].head(args.bottom)
+            if args.top is not None: dfs[-1] = dfs[-1].tail(args.top)
+        df = pd.concat(dfs)
+
+    else:
+        df = df.sort_values(by=args.ploty)
+        if args.bottom is not None: df = df.head(args.bottom)
+        if args.top is not None: df = df.tail(args.top)
+
+if args.scale is not None:
+    df[args.ploty] = df[args.ploty]*args.scale
 
 if args.print:
     print(df)
