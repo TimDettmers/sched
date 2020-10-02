@@ -38,7 +38,6 @@ if args.baseline:
     args2['lr-scheduler'] = 'inverse_sqrt'
     args2['min-lr'] = 1e-09
     args2['warmup-init-lr'] = 1e-07
-    args2['max-tokens'] = 2048
     args2['arch'] = 'transformer_lm'
 
 # moe
@@ -55,14 +54,12 @@ else:
 
     args2['arch'] = 'moe_lm'
     args2['lr-scheduler'] = 'inverse_sqrt'
-    args2['max-update'] = 5000 # -> might need less
     args2['min-lr'] = 1e-09
     args2['warmup-init-lr'] = 1e-07
-    args2['max-tokens'] = 2048
     args2['min-loss-scale'] = 1e-10
 
 
-name = 'baseline_wt10'
+name = 'grid2'
 logfolder = 'moe/wt/specialization/{0}'.format(name)
 ckp_name = logfolder
 #time_hours = 24*2
@@ -92,13 +89,8 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 
 #args2['dropout'] = 0.1
 #args2['no-save'] = ''
-args2['tokens-per-sample'] = 128
 args2['weight-decay'] = 0.00
-args2['update-freq'] = 8//gpus
-#args2['update-freq'] = 1
-args2['optimizer'] = 'lamb'
-args2['lamb-betas'] = "'(0.9, 0.999)'"
-args2['fp16-no-flatten-grads'] = ''
+args2['max-tokens'] = 1024
 
 
 fp16 = True
@@ -134,8 +126,10 @@ if not args.baseline:
 
     args3[('gate-type', 'iloss-weight','bloss-type')] = []
     args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.1, 'mean-prob-seg'))
-    args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.05, 'mean-prob-seg'))
+    args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.3, 'mean-prob-seg'))
     args3[('decoder-layers', 'moe-start-layer')] = [(15, 7)]
+    args3['dropout'] = [0.1]
+    args3['attention-dropout'] = [0.2]
 else:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim')
     args3[key] = []
@@ -147,21 +141,32 @@ else:
         args3[key].append((min_dim*scale, min_dim*scale*4, heads, scale, emb_dim, emb_dim))
     args3['decoder-layers'] = [15]
 
-args3['dropout'] = [0.0, 0.1, 0.2]
-args3['attention-dropout'] = [0.0, 0.1, 0.2]
+    args3['dropout'] = [0.0, 0.1, 0.2]
+    args3['attention-dropout'] = [0.0, 0.1, 0.2]
 args3['clip-norm'] = [0.1]
 #args3[('max-update', 'warmup-updates', '')] = [(30000, 3000, ' data/wikitext-25')]#, (3250, 400, ' data/wikitext-5')]
 #args3[('max-update', 'warmup-updates', '')] = [(12500, 1250, ' data/wikitext-10'), (25000, 2000, ' data/wikitext-50'), (50000, 5000, ' data/wikitext-103')]
 args3[('max-update', 'warmup-updates', '')] = [(12500, 1250, ' data/wikitext-10')]
+#args3[('max-update', 'warmup-updates', '')] = [(65000, 6500, ' data/wikitext-50')]
 #args3[('max-update', 'warmup-updates', '')] = [(4000, 1000, ' data/wikitext-2')]#,(25000, 2000, ' data/wikitext-50')]
 
 data_path = 'data/wikitext-10'
 valid_subsets = []
 
 #args3['decoder-layers'] = [3]
-args3['lr'] = [0.001, 0.003]
-args3['clip-norm'] = [0.1]
+args3['update-freq'] = [8//gpus, 32//gpus]
 args3['weight-decay'] = [0.00]
+args3['clip-norm'] = [0.1, 0.001, 10]
+args3['tokens-per-sample'] = [128, 256]
+
+#args2['optimizer'] = 'lamb'
+#args2['lamb-betas'] = "'(0.9, 0.999)'"
+#args2['fp16-no-flatten-grads'] = ''
+#args3['lr'] = [0.001, 0.0006]
+
+args2['optimizer'] = 'adam'
+args2['adam-betas'] = "'(0.9, 0.98)'"
+args3['lr'] = [0.0003, 0.0006, 0.0001]
 
 
 
