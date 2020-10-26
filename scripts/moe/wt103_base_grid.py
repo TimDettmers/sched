@@ -57,18 +57,19 @@ else:
     args2['min-lr'] = 1e-09
     args2['warmup-init-lr'] = 1e-07
     args2['min-loss-scale'] = 1e-10
+    args2['moe-start-layer'] = 0
 
 
-name = 'grid2'
-logfolder = 'moe/wt/specialization/{0}'.format(name)
+name = 'baseline3'
+logfolder = 'moe/scaling/wt/{0}'.format(name)
 ckp_name = logfolder
 #time_hours = 24*2
 cores_per_job = 4*gpus
-mem = 32*gpus
+mem = 48*gpus
 num_seeds = 1
 seed_offset = 0
 constraint = 'volta'
-time_hours = 2
+time_hours = 24
 time_minutes = 0
 
 #account = 'cse'
@@ -90,7 +91,9 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 #args2['dropout'] = 0.1
 #args2['no-save'] = ''
 args2['weight-decay'] = 0.00
-args2['max-tokens'] = 1024
+#args2['max-tokens'] = 1024
+args2['special-eval'] = ''
+args2['max-tokens'] = 2048
 
 
 fp16 = True
@@ -100,75 +103,81 @@ min_emb_dim = 32
 min_dim = 32
 increment_factor = 10
 
+base_heads = 1
+model_dim = 64
+doublings = 5
+
 if not args.baseline:
-    key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'moe-ff-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim')
+    key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'moe-ff-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim', 'num-experts')
     args3[key] = []
-    for scale in range(8, 40, increment_factor):
-        emb_dim = min_emb_dim + (32*scale//4)
-        if scale  == 0: scale = 1
-        heads = (min_dim*scale)//32
-        heads = 1 if heads == 0 else heads
-        ff_dim = int(min_dim*scale*4//2)
-        ff_dim -= ff_dim % 32
-        args3[key].append((min_dim*scale, min_dim*scale*4, ff_dim, heads, scale, emb_dim, emb_dim))
+    for num_experts in [16]:
+        for ff_factor in [8]:
+            for i in range(doublings):
+                if i < 2: continue
+                factor = 2**i
+                heads = base_heads*factor
+                emb_dim = model_dim*factor
+                ff_dim = model_dim*factor*ff_factor
+                args3[key].append((emb_dim, ff_dim, ff_dim//num_experts, heads, i, emb_dim, emb_dim, num_experts))
+                #args3[key].append((emb_dim, ff_dim, ff_dim//2, heads, i, emb_dim, emb_dim, num_experts))
 
-    args3['num-experts'] = [8]
-    args3['experts-per-seq'] = [7]
+    args3['epsilon'] = [0.2]
     args3['moe-freq'] = [2]
+    args3['sample-type'] = ['proportional', 'argmax', 'gumbel', 'epsilon']
     args3['criterion'] = ['moe_cross_entropy']
-    args3[('sample', 'sample-type')] = [(1, 'proportional')]
-    args3[('epsilon', 'epsilon-length')] = [(0.0, 1/4)]
-    args3['epsilon-min'] = [0.0]
-    args3['counter-reset-period'] = [1]
-    args3['overflow-fraction'] = [0.0]
-    args3['use-ff-norm'] = [True]
-    args3['no-expert-dropout'] = [True]
-
-    args3[('gate-type', 'iloss-weight','bloss-type')] = []
-    args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.1, 'mean-prob-seg'))
-    args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.3, 'mean-prob-seg'))
-    args3[('decoder-layers', 'moe-start-layer')] = [(15, 7)]
-    args3['dropout'] = [0.1]
-    args3['attention-dropout'] = [0.2]
+    args3['use-ff-norm'] = [False]
+    #args3[('gate-type', 'experts-per-seq')] = [('segments', 7), ('segments', 31), ('word-level', 255)]
+    args3['iloss-weight'] = [0.0005, 0.01, 0.005]
+    args3[('gate-type', 'experts-per-seq')] = [('segments', 31), ('segments', 7), ('segments', 63)]#, ('word-level', 255)]
+    #args3['iloss-weight'] = [0.01]
 else:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim')
     args3[key] = []
-    for scale in range(8, 40, increment_factor):
-        emb_dim = min_emb_dim + (32*scale//4)
-        if scale  == 0: scale = 1
-        heads = (min_dim*scale)//32
-        heads = 1 if heads == 0 else heads
-        args3[key].append((min_dim*scale, min_dim*scale*4, heads, scale, emb_dim, emb_dim))
-    args3['decoder-layers'] = [15]
+    for ff_factor in [8]:
+        for i in range(doublings):
+            num_experts = 16
+            if i < 2: continue
+            factor = 2**i
+            heads = base_heads*factor
+            emb_dim = model_dim*factor
+            ff_dim = model_dim*factor*ff_factor
+            args3[key].append((emb_dim, ff_dim, heads, i, emb_dim, emb_dim))
 
-    args3['dropout'] = [0.0, 0.1, 0.2]
-    args3['attention-dropout'] = [0.0, 0.1, 0.2]
-args3['clip-norm'] = [0.1]
-#args3[('max-update', 'warmup-updates', '')] = [(30000, 3000, ' data/wikitext-25')]#, (3250, 400, ' data/wikitext-5')]
-#args3[('max-update', 'warmup-updates', '')] = [(12500, 1250, ' data/wikitext-10'), (25000, 2000, ' data/wikitext-50'), (50000, 5000, ' data/wikitext-103')]
-args3[('max-update', 'warmup-updates', '')] = [(12500, 1250, ' data/wikitext-10')]
-#args3[('max-update', 'warmup-updates', '')] = [(65000, 6500, ' data/wikitext-50')]
-#args3[('max-update', 'warmup-updates', '')] = [(4000, 1000, ' data/wikitext-2')]#,(25000, 2000, ' data/wikitext-50')]
+#args3['decoder-layers'] = [4, 8]
+#args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0), (0.1, 0.1, 0.1)]
+args3['decoder-layers'] = [6]
+args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.1, 0.1, 0.1)]
+args3['clip-norm'] = [0.0]
+
+# WT
+args3[('max-update', 'warmup-updates', '')] = [(31250, 10000, ' data/wikitext-25'), (50000, 15000, ' data/wikitext-50'), (100000, 30000, ' data/wikitext-103')]
+args3['tokens-per-sample'] = [256]
+args3['update-freq'] = [8//gpus]
+
+# CC-News
+#args3[('max-update', 'warmup-updates', '')] = [(250000, 3000, ' data/cc_news')]
+#args2['validate-interval-updates'] = 500
+#args2['save-interval-updates'] = 5000
+#args2['tokens-per-sample'] = 512
+#seqs_per_mini_batch = 512 # OpenAI scaling laws mini-batch size
+#args3['update-freq'] = [seqs_per_mini_batch//(args2['max-tokens']//args2['tokens-per-sample'])//gpus]
+
 
 data_path = 'data/wikitext-10'
 valid_subsets = []
 
 #args3['decoder-layers'] = [3]
-args3['update-freq'] = [8//gpus, 32//gpus]
 args3['weight-decay'] = [0.00]
-args3['clip-norm'] = [0.1, 0.001, 10]
-args3['tokens-per-sample'] = [128, 256]
 
 #args2['optimizer'] = 'lamb'
 #args2['lamb-betas'] = "'(0.9, 0.999)'"
 #args2['fp16-no-flatten-grads'] = ''
-#args3['lr'] = [0.001, 0.0006]
+#args3['lr'] = [0.001]
 
-args2['optimizer'] = 'adam'
-args2['adam-betas'] = "'(0.9, 0.98)'"
-args3['lr'] = [0.0003, 0.0006, 0.0001]
-
-
+args2['warmup-init-lr'] = 1e-03
+args2['lr'] = 1e-03
+args2['optimizer'] = 'adafactor'
+args2['fp16-no-flatten-grads'] = ''
 
 args4 = []
 
@@ -257,7 +266,10 @@ for seed in range(num_seeds):
 if args.dry:
     for i, job in enumerate(jobs):
         print(i, job)
-    print('total jobs', len(jobs))
+    print('')
+    print('Total jobs', len(jobs))
+    print('Time hours: {0}'.format(time_hours))
+    print('GPUs: {0}'.format(gpus))
     print('Jobs will be written to: {0}'.format(logfolder))
     print('Jobs will be run on: {0}'.format(partition))
     print('Run in folder: {0}'.format(change_dir))

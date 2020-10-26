@@ -26,7 +26,7 @@ cmd2 = 'MKL_THREADING_LAYER=GNU fairseq-eval-lm --context-window 0 --task langua
 
 args2 = {}
 #baseline
-gpus = 2
+gpus = 4
 
 
 if args.baseline:
@@ -56,15 +56,14 @@ else:
 
     args2['arch'] = 'moe_lm'
     args2['lr-scheduler'] = 'inverse_sqrt'
-    args2['max-update'] = 5000 # -> might need less
     args2['min-lr'] = 1e-09
     args2['warmup-init-lr'] = 1e-07
     args2['max-tokens'] = 2048
     args2['min-loss-scale'] = 1e-10
 
 
-name = 'grid5'
-logfolder = 'moe/cld/scale/wiki/{0}'.format(name)
+name = 'wiki_0.25'
+logfolder = 'moe/cld/specialization/{0}'.format(name)
 ckp_name = logfolder
 #time_hours = 24*2
 
@@ -95,7 +94,6 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 #args2['dropout'] = 0.1
 #args2['no-save'] = ''
 args2['tokens-per-sample'] = 128
-args2['update-freq'] = 8//gpus
 #args2['update-freq'] = 1
 args2['optimizer'] = 'lamb'
 args2['lamb-betas'] = "'(0.9, 0.999)'"
@@ -122,6 +120,7 @@ if not args.baseline:
         ff_dim -= ff_dim % 32
         args3[key].append((min_dim*scale, min_dim*scale*4, ff_dim, heads, scale, emb_dim, emb_dim))
 
+    args2['special-eval'] = ''
     args3['num-experts'] = [8]
     args3['experts-per-seq'] = [7]
     args3['moe-freq'] = [2]
@@ -138,11 +137,11 @@ if not args.baseline:
     #args3['gate-type'] = ['word-level']
     args3[('gate-type', 'iloss-weight','bloss-type')] = []
     args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.1, 'mean-prob-seg'))
-    args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.03, 'mean-prob-seg'))
+    args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.3, 'mean-prob-seg'))
     args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.06, 'mean-prob-seg'))
     #args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.1, 'mean-prob-seg'))
     #args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 1.0, 'mean-prob-seg'))
-    args3[('decoder-layers', 'moe-start-layer')] = [(9, 4), (9, 7), (12, 7), (15, 7)]
+    args3[('decoder-layers', 'moe-start-layer')] = [(9, 4)]
 else:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim')
     args3[key] = []
@@ -152,22 +151,21 @@ else:
         heads = (min_dim*scale)//32
         heads = 1 if heads == 0 else heads
         args3[key].append((min_dim*scale, min_dim*scale*4, heads, scale, emb_dim, emb_dim))
-    args3['decoder-layers'] = [9, 12, 15]
+    args3['decoder-layers'] = [9]
 
-args3[('warmup-updates', 'lr')] = [(5000, 0.0006), (10000, 0.001), (10000, 0.0006)]
-args3['dropout'] = [0.0, 0.1]
-args3['attention-dropout'] = [0.1, 0.2]
+#args3[('warmup-updates', 'lr')] = [(5000, 0.0006), (10000, 0.001), (10000, 0.0006)]
+args3['lr'] = [0.001, 0.0006]
+args3['dropout'] = [0.1]
+args3['attention-dropout'] = [0.2]
 args3['clip-norm'] = [0.1]
 args3['weight-decay'] = [0.00]
 #args3[('max-update', 'warmup-updates', '')] = [(30000, 3000, ' data/wikitext-25')]#, (3250, 400, ' data/wikitext-5')]
-#args3[('max-update', 'warmup-updates', '')] = []
-args3[('max-update', '')] = []
-#args3[('max-update', 'warmup-updates', '')].append((5000, 500, ' data/cld_wiki_0.1'))
-#args3[('max-update', 'warmup-updates', '')].append((25000, 2500, ' data/cld_wiki_0.25'))
-#args3[('max-update', 'warmup-updates', '')].append((10000, 1000, ' data/cld_wiki_0.1'))
-#args3[('max-update', 'warmup-updates', '')].append((50000, 5000, ' data/cld_wiki_0.5'))
-#args3[('max-update', 'warmup-updates', '')].append((50000, 5000, ' data/cld_wiki_1.0'))
-args3[('max-update', '')].append((50000, ' data/cld_wiki_1.0'))
+args3[('max-update', 'warmup-updates', '', 'update-freq')] = []
+args3[('max-update', 'warmup-updates', '', 'update-freq')].append((12500, 1250, ' data/cld_wiki_0.25', 8//gpus))
+args3[('max-update', 'warmup-updates', '', 'update-freq')].append((12500, 1250, ' data/cld_wiki_0.25', 16//gpus))
+args3[('max-update', 'warmup-updates', '', 'update-freq')].append((12500, 1250, ' data/cld_wiki_en_0.25', 8//gpus))
+args3[('max-update', 'warmup-updates', '', 'update-freq')].append((12500, 1250, ' data/cld_wiki_en_0.25', 16//gpus))
+#args3[('max-update', '')].append((50000, ' data/cld_wiki_en_1.0'))
 #args3[('max-update', 'warmup-updates', '')] = [(4000, 1000, ' data/wikitext-2')]#,(25000, 2000, ' data/wikitext-50')]
 
 data_path = 'data/cld_wiki_0.1'

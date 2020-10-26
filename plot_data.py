@@ -16,7 +16,7 @@ parser.add_argument('--out', '-o', type=str, default='', help='The output path')
 parser.add_argument('--print', action='store_true', help='Prints the dataframe before it is being plotted.')
 parser.add_argument('--category', type=str, default='', help='Plot all different values for a category into one plot.')
 parser.add_argument('--title', type=str, default='', help='Title of the plot.')
-parser.add_argument('--namey', type=str, default='Mean', help='Name of the y-axis')
+parser.add_argument('--namey', type=str, default=None, help='Name of the y-axis')
 parser.add_argument('--categoricalx', action='store_true', help='Treat x variable as categorical')
 parser.add_argument('--median', action='store_true', help='Use median for plotting y-values instead of mean.')
 parser.add_argument('--ci', action='store_true', help='Plot confidence intervals through the value column')
@@ -28,12 +28,13 @@ parser.add_argument('--scale', type=float, default=None, help='Multiply metric b
 
 args = parser.parse_args()
 
-args.ploty = 'Median' if args.median else args.ploty
-args.ploty = 'Value' if args.ci else args.ploty
-args.ploty = 'Value' if args.swarm else args.ploty
+#args.ploty = 'Median' if args.median else args.ploty
+#args.ploty = 'Value' if args.ci else args.ploty
+#args.ploty = 'Value' if args.swarm else args.ploty
+args.namey = args.ploty if args.namey is None else args.namey
 if args.out == '': args.out = args.csv.replace('csv','png')
 
-df = pd.read_csv(args.csv)
+df = pd.read_csv(args.csv, sep=';')
 
 filter_keys = [] if args.filter == '' else args.filter.split(',')
 for f in filter_keys:
@@ -69,8 +70,13 @@ if not os.path.exists(os.path.dirname(args.out)):
 
 plt.title(args.title, fontsize=18)
 if args.category == '':
-    sns.lineplot(df[args.plotx], df[args.ploty])
+    #sns.lineplot(df[args.plotx], df[args.ploty])
+    ax = sns.regplot(x=args.plotx, y=args.ploty,data=df, scatter=True)
+    plt.subplots_adjust(top=0.9)
+    #ax.fig.suptitle(args.title, fontsize=18)
+    #ax.set_xticklabels(rotation=args.tick_rotation)
 else:
+    print(df)
     num_values = np.unique(df[args.category]).size
     #plt.errorbar(x=df[args.plotx], y=df[args.ploty], fmt='none', xerror=df['SE'], ecolor='k', elinewidth=2)
     if args.categoricalx:

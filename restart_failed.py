@@ -5,6 +5,7 @@ import datetime
 
 parser = argparse.ArgumentParser('Script to restart failed or timeouted jobs.')
 parser.add_argument('--startid', type=int, required=True, help='Restart all failed or timeouted jobs with this jobid or greater.')
+parser.add_argument('--endid', type=int, required=True, help='Restart all failed or timeouted jobs with this jobid or smaller.')
 parser.add_argument('--dry', action='store_true', help='Dry run the scripts to execute')
 parser.add_argument('--no-exclude', action='store_true', help='Does not exclude any nodes from being run on.')
 parser.add_argument('--include-failed', action='store_true', help='Includes failed jobs.')
@@ -75,6 +76,7 @@ for l in lines:
     # add nodes that failed in the past even though the job to restart might not have failed on it
     if state == 'FAILED' and not args.no_exclude: banned.add(node)
     if jobid < args.startid: continue
+    if jobid > args.endid: continue
     if args.state != '' and state != args.state: continue
     restarts.add(script_id)
     script2data[script_id] = (script, array_id, jobstr, state, node)
