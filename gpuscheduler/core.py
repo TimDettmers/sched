@@ -177,7 +177,7 @@ class HyakScheduler(object):
 
 
 
-    def add_job(self, path, repo_dir, work_dir, cmds, time_hours, fp16=False, gpus=1, mem=32, cores=6, constraint='volta', exclude='', time_minutes=0):
+    def add_job(self, path, repo_dir, work_dir, cmds, time_hours, fp16=False, gpus=1, mem=32, cores=6, constraint='', exclude='', time_minutes=0):
         self.jobs.append([path, work_dir, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes])
         if self.verbose:
             print('#SBATCH --time={0:02d}:{1:02d}:00'.format(time_hours, time_minutes))

@@ -60,7 +60,7 @@ else:
     args2['moe-start-layer'] = 0
 
 
-name = 'baseline3'
+name = 'moe6'
 logfolder = 'moe/scaling/wt/{0}'.format(name)
 ckp_name = logfolder
 #time_hours = 24*2
@@ -110,7 +110,7 @@ doublings = 5
 if not args.baseline:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'moe-ff-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim', 'num-experts')
     args3[key] = []
-    for num_experts in [4, 8, 16]:
+    for num_experts in [4, 8]:
         for ff_factor in [8]:
             for i in range(doublings):
                 if i < 2: continue
@@ -126,9 +126,10 @@ if not args.baseline:
     args3['sample-type'] = ['argmax']
     args3['criterion'] = ['moe_cross_entropy']
     args3['use-ff-norm'] = [False]
-    #args3[('gate-type', 'experts-per-seq')] = [('segments', 7), ('segments', 31), ('word-level', 255)]
+    args3[('gate-type', 'experts-per-seq')] = [('segments', 7), ('segments', 31)]
+    args3['agg-type'] = ['mean', 'attention', 'full-weight']
     args3['iloss-weight'] = [0.01]
-    args3[('gate-type', 'experts-per-seq')] = [('segments', 255), ('segments', 127), ('word-level', 255)]
+    #args3[('gate-type', 'experts-per-seq')] = [('segments', 255), ('segments', 127), ('word-level', 255)]
     #args3['iloss-weight'] = [0.01]
 else:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim')
@@ -145,7 +146,7 @@ else:
 
 #args3['decoder-layers'] = [4, 8]
 #args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0), (0.1, 0.1, 0.1)]
-args3['decoder-layers'] = [6]
+args3['decoder-layers'] = [4]
 args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.1, 0.1, 0.1)]
 args3['clip-norm'] = [0.0]
 
@@ -271,7 +272,7 @@ if args.dry:
     print('Total jobs', len(jobs))
     print('Time hours: {0}'.format(time_hours))
     print('GPUs: {0}'.format(gpus))
-    print('Jobs will be written to: {0}'.format(logfolder))
+    print('Jobs will be written to: {0}'.format(join('/private/home/timdettmers/logs/', logfolder)))
     print('Jobs will be run on: {0}'.format(partition))
     print('Run in folder: {0}'.format(change_dir))
 

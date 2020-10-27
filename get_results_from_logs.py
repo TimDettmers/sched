@@ -49,7 +49,7 @@ args = parser.parse_args()
 
 metrics = None
 if args.metric_file is not None:
-    metrics = pd.read_csv(args.metric_file).fillna('')
+    metrics = pd.read_csv(args.metric_file, comment='#').fillna('')
     primary_metric = metrics.iloc[0]['name'] if metrics is not None else 'default'
     smaller_is_better = metrics.iloc[0]['smaller_is_better'] == 1
     metrics = metrics.to_dict('records')
@@ -89,11 +89,10 @@ for folder in folders:
             config['METRICS'][metric['name']] = []
         if os.stat(log_name.replace('.log','.err')).st_size > 0: config['has_error'] = True
         else: config['has_error'] = False
-
         with open(log_name, 'r') as f:
             has_config = False
             for line in f:
-                if 'Namespace(' in line:
+                if 'Namespace(' in line and not has_config:
                     has_config = True
                     line = line[line.find('Namespace(')+len('Namespace('):]
                     matches = re.findall(r'(?!^\()([^=,]+)=([^\0]+?)(?=,[^,]+=|\)$)', line)
@@ -117,7 +116,10 @@ for folder in folders:
                             print('Config for {0} not found. Test metric: {1}'.format(log_name, matches[0]))
                             break
                         if name not in config['METRICS']: config['METRICS'][name] = []
-                        config['METRICS'][name].append(float(matches[0]))
+                        try:
+                            config['METRICS'][name].append(float(matches[0]))
+                        except:
+                            continue
                         break
 
         configs.append(config)
