@@ -110,7 +110,7 @@ doublings = 5
 if not args.baseline:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'moe-ff-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim', 'num-experts')
     args3[key] = []
-    for num_experts in [16]:
+    for num_experts in [4, 8, 16]:
         for ff_factor in [8]:
             for i in range(doublings):
                 if i < 2: continue
@@ -123,12 +123,12 @@ if not args.baseline:
 
     args3['epsilon'] = [0.2]
     args3['moe-freq'] = [2]
-    args3['sample-type'] = ['proportional', 'argmax', 'gumbel', 'epsilon']
+    args3['sample-type'] = ['argmax']
     args3['criterion'] = ['moe_cross_entropy']
     args3['use-ff-norm'] = [False]
     #args3[('gate-type', 'experts-per-seq')] = [('segments', 7), ('segments', 31), ('word-level', 255)]
-    args3['iloss-weight'] = [0.0005, 0.01, 0.005]
-    args3[('gate-type', 'experts-per-seq')] = [('segments', 31), ('segments', 7), ('segments', 63)]#, ('word-level', 255)]
+    args3['iloss-weight'] = [0.01]
+    args3[('gate-type', 'experts-per-seq')] = [('segments', 255), ('segments', 127), ('word-level', 255)]
     #args3['iloss-weight'] = [0.01]
 else:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim')
@@ -150,7 +150,8 @@ args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.1, 0.1, 0.1)]
 args3['clip-norm'] = [0.0]
 
 # WT
-args3[('max-update', 'warmup-updates', '')] = [(31250, 10000, ' data/wikitext-25'), (50000, 15000, ' data/wikitext-50'), (100000, 30000, ' data/wikitext-103')]
+args3[('max-update', 'warmup-updates', '')] = [(45000, 13500, ' data/wikitext-50'), (80000, 24000, ' data/wikitext-103')]
+#args3[('max-update', 'warmup-updates', '')] = [(31250, 10000, ' data/wikitext-25'), (50000, 15000, ' data/wikitext-50'), (100000, 30000, ' data/wikitext-103')]
 args3['tokens-per-sample'] = [256]
 args3['update-freq'] = [8//gpus]
 
