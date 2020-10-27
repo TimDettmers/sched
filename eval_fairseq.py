@@ -17,14 +17,17 @@ parser.add_argument('--start', type=str, default='', help='String after which th
 parser.add_argument('--end', type=str, default='\n', help='String before which the checkpoint path.')
 parser.add_argument('--dry', action='store_true', help='Prints the commands that would be executed without executing them')
 parser.add_argument('--append', action='store_true', help='Append the evaluation data to the log file instead of creating a new one')
-parser.add_argument('--out', type=str, help='The output folder')
+parser.add_argument('--out', default=None, type=str, help='The output folder')
 parser.add_argument('--args', type=str, default='--special-eval', help='Additional args for fairseq.')
 parser.add_argument('--fairseq-path', type=str, default='/private/home/timdettmers/git/fairseq_private', help='The path to the fairseq source.')
 parser.add_argument('--filter', nargs='+', type=str, default='', help='Only evaluate configs with these key-value parameters. Space separated key-values.')
 
 args = parser.parse_args()
+if args.out is None and not args.append:
+    print('Either set the output path --out or set the --append option to append to the log file.')
+    os.exit()
 
-if not os.path.exists(args.out):
+if args.out is not None and not os.path.exists(args.out):
     os.makedirs(args.out)
 
 def clean_string(key):
@@ -104,9 +107,9 @@ for folder in folders:
         if args.dry:
             print(cmd)
         else:
-            print('Executing command {0}/{1}'.format(i, n))
+            print('Executing command {0}/{1}'.format(i, n+1))
             out, err = execute_and_return(cmd)
-            out = err if len(out) == 0 else out
+            out = out + '\n' + err
 
             if 'Traceback' in out:
                 print('ERROR!')
