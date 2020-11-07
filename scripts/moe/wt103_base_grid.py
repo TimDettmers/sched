@@ -20,7 +20,7 @@ parser.add_argument('--baseline', action='store_true', help='Run baseline transf
 args = parser.parse_args()
 
 
-cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints'
+cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 5'
 cmd2 = 'fairseq-eval-lm --context-window 0 --task language_modeling --max-tokens 2048 --tokens-per-sample 128 --gen-subset {2} --skip-invalid-size-inputs-valid-test --path {1}/checkpoint_best.pt {0}'
 
 args2 = {}
@@ -60,16 +60,21 @@ else:
     args2['moe-start-layer'] = 0
 
 
-name = 'moe6'
-logfolder = 'moe/scaling/wt/{0}'.format(name)
+if args.baseline:
+    name = 'baselines20'
+    constraint = 'volta32gb'
+else:
+    name = 'moe20'
+    constraint = 'volta'
+
+logfolder = 'moe/scaling/cc_news/{0}'.format(name)
 ckp_name = logfolder
 #time_hours = 24*2
 cores_per_job = 4*gpus
 mem = 48*gpus
 num_seeds = 1
 seed_offset = 0
-constraint = 'volta'
-time_hours = 24
+time_hours = 16
 time_minutes = 0
 
 #account = 'cse'
@@ -110,40 +115,53 @@ doublings = 5
 if not args.baseline:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'moe-ff-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim', 'num-experts')
     args3[key] = []
-    for num_experts in [4, 8]:
-        for ff_factor in [8]:
+    #for num_experts in [16, 32]:
+    for num_experts in [16]:
+        #for ff_factor in [4, 8, 16, 32, 64]:
+        for ff_factor in [16, 32, 64]:
             for i in range(doublings):
-                if i < 2: continue
+                if i < 4: continue
                 factor = 2**i
                 heads = base_heads*factor
                 emb_dim = model_dim*factor
                 ff_dim = model_dim*factor*ff_factor
                 args3[key].append((emb_dim, ff_dim, ff_dim//num_experts, heads, i, emb_dim, emb_dim, num_experts))
-                #args3[key].append((emb_dim, ff_dim, ff_dim//2, heads, i, emb_dim, emb_dim, num_experts))
+                #args3[key].append((emb_dim, ff_dim, ff_dim//2, heads, i, emb_dim, emb_dim))
 
     args3['epsilon'] = [0.2]
     args3['moe-freq'] = [2]
     args3['sample-type'] = ['argmax']
     args3['criterion'] = ['moe_cross_entropy']
     args3['use-ff-norm'] = [False]
-    args3[('gate-type', 'experts-per-seq')] = [('segments', 7), ('segments', 31)]
-    args3['agg-type'] = ['mean', 'attention', 'full-weight']
-    args3['iloss-weight'] = [0.01]
+    args3[('gate-type', 'experts-per-seq', 'iloss-weight')] = []
+    #args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 7, 0.3))
+    #args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 7, 0.1))
+    args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 7, 0.05))
+    #args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 31, 0.01))
+    args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 31, 0.05))
+    #args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 31, 0.3))
+    args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('word-level', 511, 0.01))
+    #args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('word-level', 255, 0.01))
+    args3['agg-type'] = ['mean']
+    #args3['iloss-weight'] = [0.01]
+    #args3[('num-experts', 'iloss-weight')] = [(16, 0.01), (16, 0.05), (16, 0.1)]
+    #args3[('num-experts', 'iloss-weight')] = [(8, 0.02)]
+    #args3['num-experts'] = [16]
     #args3[('gate-type', 'experts-per-seq')] = [('segments', 255), ('segments', 127), ('word-level', 255)]
     #args3['iloss-weight'] = [0.01]
 else:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim')
     args3[key] = []
-    for ff_factor in [8]:
+    for ff_factor in [4, 8, 16, 32, 64]:
         for i in range(doublings):
-            num_experts = 16
-            if i < 2: continue
+            if i < 4: continue
             factor = 2**i
             heads = base_heads*factor
             emb_dim = model_dim*factor
             ff_dim = model_dim*factor*ff_factor
             args3[key].append((emb_dim, ff_dim, heads, i, emb_dim, emb_dim))
 
+args2['validate-interval-updates'] = 1000
 #args3['decoder-layers'] = [4, 8]
 #args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0), (0.1, 0.1, 0.1)]
 args3['decoder-layers'] = [4]
@@ -151,18 +169,17 @@ args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.1, 0.1, 0.1)]
 args3['clip-norm'] = [0.0]
 
 # WT
-args3[('max-update', 'warmup-updates', '')] = [(45000, 13500, ' data/wikitext-50'), (80000, 24000, ' data/wikitext-103')]
+#args3[('max-update', 'warmup-updates', '')] = [(80000, 24000, ' data/wikitext-103')]
 #args3[('max-update', 'warmup-updates', '')] = [(31250, 10000, ' data/wikitext-25'), (50000, 15000, ' data/wikitext-50'), (100000, 30000, ' data/wikitext-103')]
-args3['tokens-per-sample'] = [256]
-args3['update-freq'] = [8//gpus]
+#args3['tokens-per-sample'] = [256]
+#args3['update-freq'] = [8//gpus]
 
 # CC-News
-#args3[('max-update', 'warmup-updates', '')] = [(250000, 3000, ' data/cc_news')]
-#args2['validate-interval-updates'] = 500
-#args2['save-interval-updates'] = 5000
-#args2['tokens-per-sample'] = 512
-#seqs_per_mini_batch = 512 # OpenAI scaling laws mini-batch size
-#args3['update-freq'] = [seqs_per_mini_batch//(args2['max-tokens']//args2['tokens-per-sample'])//gpus]
+args3[('max-update', 'warmup-updates', '')] = [(250000, 3000, ' data/cc_news')]
+args2['save-interval-updates'] = 1000
+args2['tokens-per-sample'] = 512
+seqs_per_mini_batch = 512 # OpenAI scaling laws mini-batch size
+args3['update-freq'] = [seqs_per_mini_batch//(args2['max-tokens']//args2['tokens-per-sample'])//gpus]
 
 
 data_path = 'data/wikitext-10'

@@ -71,7 +71,7 @@ mem = 64*gpus
 num_seeds = 1
 seed_offset = 0
 constraint = 'volta'
-time_hours = 24
+time_hours = 72
 time_minutes = 0
 delay_seconds = 90
 
@@ -120,7 +120,8 @@ if not args.baseline:
         heads = 1 if heads == 0 else heads
         ff_dim = int(min_dim*scale*4//2)
         ff_dim -= ff_dim % 32
-        args3[key].append((min_dim*scale, min_dim*scale*4, ff_dim, heads, scale, emb_dim, emb_dim))
+        #args3[key].append((min_dim*scale, min_dim*scale*4, ff_dim, heads, scale, emb_dim, emb_dim))
+        args3[key].append((min_dim*scale, min_dim*scale*4, ff_dim//num_experts, heads, scale, emb_dim, emb_dim))
 
     args3['num-experts'] = [8, 16]
     args3['experts-per-seq'] = [7]

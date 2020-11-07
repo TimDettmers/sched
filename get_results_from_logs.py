@@ -49,7 +49,7 @@ args = parser.parse_args()
 
 metrics = None
 if args.metric_file is not None:
-    metrics = pd.read_csv(args.metric_file, comment='#').fillna('')
+    metrics = pd.read_csv(args.metric_file, comment='#', quotechar='"').fillna('')
     primary_metric = metrics.iloc[0]['name'] if metrics is not None else 'default'
     smaller_is_better = metrics.iloc[0]['smaller_is_better'] == 1
     metrics = metrics.to_dict('records')
@@ -112,17 +112,20 @@ for folder in folders:
                     name = metric['name']
                     matches = re.findall(regex, line)
                     if len(matches) > 0:
-                        if not has_config:
-                            print('Config for {0} not found. Test metric: {1}'.format(log_name, matches[0]))
-                            break
+                        #if not has_config:
+                        #    print('Config for {0} not found. Test metric: {1}'.format(log_name, matches[0]))
+                        #    break
                         if name not in config['METRICS']: config['METRICS'][name] = []
                         try:
                             config['METRICS'][name].append(float(matches[0]))
                         except:
+                            print(line)
+                            print(regex)
+                            print(matches)
                             continue
-                        break
 
-        configs.append(config)
+        if has_config:
+            configs.append(config)
 
 if args.diff:
     key2values = {}
@@ -157,11 +160,20 @@ for config in configs:
     for metric in metrics:
         name = metric['name']
         x = np.array(config['METRICS'][name])
-        if x.size == 0: continue
+        if x.size == 0 and metric['agg'] != 'stop': continue
         if metric['agg'] == 'last': x = x[-1]
         elif metric['agg'] == 'mean': x = np.mean(x)
         elif metric['agg'] == 'min': x = np.nanmin(x)
         elif metric['agg'] == 'max': x = np.nanmax(x)
+        elif metric['agg'] == 'stop':
+            name2 = metric['reference_metric_name']
+            value = metric['value']
+            x2 = config['METRICS'][name2]
+            for i, val1 in enumerate(x2):
+                if val1 == value:
+                    break
+            if i > x.size: i = -1
+            x = x[i]
         elif metric['agg'] == 'idx':
             name2 = metric['reference_metric_name']
             x2 = config['METRICS'][name2]

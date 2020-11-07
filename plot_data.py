@@ -32,7 +32,10 @@ args = parser.parse_args()
 #args.ploty = 'Value' if args.ci else args.ploty
 #args.ploty = 'Value' if args.swarm else args.ploty
 args.namey = args.ploty if args.namey is None else args.namey
+
 if args.out == '': args.out = args.csv.replace('csv','png')
+if not os.path.exists(os.path.dirname(args.out)):
+    os.makedirs(os.path.dirname(args.out))
 
 df = pd.read_csv(args.csv, sep=';')
 
@@ -63,9 +66,7 @@ if args.scale is not None:
 if args.print:
     print(df)
 
-if not os.path.exists(os.path.dirname(args.out)):
-    os.makedirs(os.path.dirname(args.out))
-#plt.ylim(0.0, 1.0)
+#plt.xlim(0.0, 250)
 #plt.xlim(0, 1050)
 
 plt.title(args.title, fontsize=18)

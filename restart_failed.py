@@ -1,3 +1,4 @@
+import os
 import argparse
 import subprocess
 import shlex
@@ -66,21 +67,27 @@ for l in lines:
 
     script_id = script + '_{0}'.format(array_id)
 
-    if script_id in script2data and state in ['RUNNING', 'COMPLETED', 'PENDING']:
+    if 'array' in script:
+        with open(script) as f:
+            lines = f.readlines()
+        script_name = lines[array_id].strip()
+    else:
+        script_name = script
+
+    if script_name in script2data and state in ['RUNNING', 'COMPLETED', 'PENDING']:
         # job already restarted successfully, no action needed, remove job
         if args.verbose:
             print('Script {1} has already been restarted and is running as {0}'.format(jobid, script_id))
-        restarts.discard(script_id)
-        script2data.pop(script_id)
+        restarts.discard(script_name)
+        script2data.pop(script_name)
     if state not in states: continue
     # add nodes that failed in the past even though the job to restart might not have failed on it
     if state == 'FAILED' and not args.no_exclude: banned.add(node)
     if jobid < args.startid: continue
     if args.endid is not None and jobid > args.endid: continue
     if args.state != '' and state != args.state: continue
-    restarts.add(script_id)
-    script2data[script_id] = (script, array_id, jobstr, state, node)
-    print(script_id)
+    script2data[script_name] = (script, array_id, jobstr, state, node)
+    restarts.add(script_name)
 
 print('Banned nodes: {0}'.format(','.join(banned)))
 if args.dry:
@@ -89,34 +96,28 @@ if args.dry:
     print('Restarting the following {0} jobs...'.format(len(restarts)))
     print('='*80)
     print('')
-for scriptid in restarts:
+for script_name in restarts:
     if not args.dry:
-        data = script2data[scriptid]
+        data = script2data[script_name]
         print('Originally: Job {0} with State {1} on NodeList {2}'.format(*data[-3:]))
         script, array_id, jobstr, state, node = data
         if 'array_jobs' in script:
-            with open(script) as f:
-                lines = f.readlines()
-            script = lines[array_id].strip()
-            print('Restarting script: {0}'.format(script))
-            cmd = 'sbatch --exclude={1} {0}'.format(script, ','.join(banned))
+            print('Restarting script: {0}'.format(script_name))
+            cmd = 'sbatch --exclude={1} {0}'.format(script_name, ','.join(banned))
         else:
-            print('Restarting script: {0}'.format(script))
-            cmd = 'sbatch --exclude={1} {0}'.format(script, ','.join(banned))
+            print('Restarting script: {0}'.format(script_name))
+            cmd = 'sbatch --exclude={1} {0}'.format(script_name, ','.join(banned))
 
         out, err = execute_and_return(cmd)
         if len(err) > 0:
             print('Error in sbatch call: {0}'.format(err))
     else:
-        data = script2data[scriptid]
+        data = script2data[script_name]
         print('Originally: Job {0} with State {1} on NodeList {2}'.format(*data[-3:]))
         if args.verbose:
             script, array_id, jobstr, state, node = data
             if 'array_jobs' in script:
-                with open(script) as f:
-                    lines = f.readlines()
-                script = lines[array_id].strip()
-            cmd = 'sbatch --exclude={1} {0}'.format(script, ','.join(banned))
+                cmd = 'sbatch --exclude={1} {0}'.format(script_name, ','.join(banned))
             if args.verbose:
                 print(cmd)
 
