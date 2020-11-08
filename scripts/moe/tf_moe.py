@@ -135,8 +135,10 @@ else:
         args3['no-expert-dropout'] = [True]
         #args3['agg-type'] = ['mean', 'conv']
         args3['agg-type'] = ['mean']
+        args3['loss-type'] = ['mean', 'mean-segment']
+        args3['gate-sharing'] = ['none', 'single']
         #args3['gate-type'] = ['word-level']
-        args3['iloss-weight'] = [0.1, 0.05, 0.01]
+        args3[('iloss-weight', 'sample-type')] = [(0.01, 'argmax'), (0.1, 'argmax'), (0.01, 'gumbel')]
         #args3['iloss-weight'] = [0.01, 0.006]
         #args3[('gate-type', 'experts-per-seq')] = [('word-level', 255)]#, ('segments', 255), ('segments', 7), ('segments', 31)]
         args3[('gate-type', 'experts-per-seq')] = [('segments', 7), ('segments', 31), ('word-level', 255)]
@@ -162,7 +164,7 @@ else:
     args3['relu-dropout'] = [0.1]
         #args3[('max-update', 'warmup-updates', '')] = [(30000, 3000, ' data/wikitext-25')]#, (3250, 400, ' data/wikitext-5')]
     args3[('max-update', 'warmup-updates', '', 'update-freq')] = []
-    args3[('max-update', 'warmup-updates', '', 'update-freq')].append((34400, 10000, ' /private/home/timdettmers/data/t2t_data/data-bin', 1))
+    args3[('max-update', 'warmup-updates', '', 'update-freq')].append((34400, 10000, ' /private/home/timdettmers/data/t2t_data/data-bin', 8//gpus))
     args3['clip-norm'] = [0.0]
 
 
