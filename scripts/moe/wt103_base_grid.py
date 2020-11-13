@@ -74,7 +74,7 @@ cores_per_job = 4*gpus
 mem = 48*gpus
 num_seeds = 1
 seed_offset = 0
-time_hours = 16
+time_hours = 24
 time_minutes = 0
 
 #account = 'cse'
@@ -118,7 +118,8 @@ if not args.baseline:
     #for num_experts in [16, 32]:
     for num_experts in [16]:
         #for ff_factor in [4, 8, 16, 32, 64]:
-        for ff_factor in [16, 32, 64]:
+        for ff_factor in [32, 64]:
+        #for ff_factor in [8]:
             for i in range(doublings):
                 if i < 4: continue
                 factor = 2**i
@@ -136,9 +137,9 @@ if not args.baseline:
     args3[('gate-type', 'experts-per-seq', 'iloss-weight')] = []
     #args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 7, 0.3))
     #args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 7, 0.1))
-    args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 7, 0.05))
+    args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 7, 0.03))
     #args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 31, 0.01))
-    args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 31, 0.05))
+    args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 31, 0.03))
     #args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('segments', 31, 0.3))
     args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('word-level', 511, 0.01))
     #args3[('gate-type', 'experts-per-seq', 'iloss-weight')].append(('word-level', 255, 0.01))
@@ -152,7 +153,8 @@ if not args.baseline:
 else:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim')
     args3[key] = []
-    for ff_factor in [4, 8, 16, 32, 64]:
+    #for ff_factor in [4, 8, 16, 32, 64]:
+    for ff_factor in [32, 64]:
         for i in range(doublings):
             if i < 4: continue
             factor = 2**i

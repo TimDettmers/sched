@@ -59,7 +59,7 @@ else:
 
 #baseline
 gpus = 8
-name = 'new_moe6'
+name = 'experts2'
 #name = 'base_drop_batch1'
 if args.tf:
     args2['dummy'] = name
@@ -73,9 +73,9 @@ cores_per_job = 4*gpus
 mem = 32*gpus
 num_seeds = 1
 seed_offset = 0
-constraint = 'volta32gb'
+constraint = 'volta'
 #time_hours = int(48/gpus)
-time_hours = 72
+time_hours = 8
 time_minutes = 0
 
 #account = 'cse'
@@ -119,7 +119,7 @@ if args.tf:
 else:
     if args.moe:
         args2['special-eval'] = ''
-        args3['num-experts'] = [16]
+        args3['num-experts'] = [8]
         #args3['experts-per-seq'] = [7]
         args3['moe-freq'] = [2]
         #args3['bloss-type'] = ['mean-prob-seg']
@@ -135,26 +135,17 @@ else:
         args3['no-expert-dropout'] = [True]
         #args3['agg-type'] = ['mean', 'conv']
         args3['agg-type'] = ['mean']
-        args3['loss-type'] = ['mean', 'mean-segment']
-        args3['gate-sharing'] = ['none', 'single']
+        args3['loss-type'] = ['mean']
+        args3['gate-sharing'] = ['multi']
         #args3['gate-type'] = ['word-level']
-        args3[('iloss-weight', 'sample-type')] = [(0.01, 'argmax'), (0.1, 'argmax'), (0.01, 'gumbel')]
-        #args3['iloss-weight'] = [0.01, 0.006]
-        #args3[('gate-type', 'experts-per-seq')] = [('word-level', 255)]#, ('segments', 255), ('segments', 7), ('segments', 31)]
+        args3[('iloss-weight', 'sample-type')] = [(0.01, 'argmax')]
         args3[('gate-type', 'experts-per-seq')] = [('segments', 7), ('segments', 31), ('word-level', 255)]
-        #args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('word-level', 0.3, 'mean-prob-seg'))
-        #args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('word-level', 0.06, 'mean-prob-seg'))
-        #args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('word-level', 0.1, 'mean-prob-seg'))
-        #args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('word-level', 0.3, 'mean-prob-seg'))
-        #args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('word-level', 0.06, 'mean-prob-seg'))
-        #args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.1, 'mean-prob-seg'))
-        #args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.3, 'mean-prob-seg'))
-        #args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 0.06, 'mean-prob-seg'))
-        #args3[('gate-type', 'iloss-weight', 'bloss-type')].append(('segments', 1.0, 'mean-prob-seg'))
-        #args3[('decoder-layers', 'moe-start-layer')] = [(4, 0)]
         args3['moe-start-layer'] = [0]
         #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(256, 4096), (512, 8192), (4096, 65536)]
-        args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(256, 4096), (512, 8192)]
+        #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(128, 4096), (256, 8192), (2048, 65536)] # 32 experts
+        args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(512, 4096), (1024, 8192), (8192, 65536)] # 8 experts
+        #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(256, 4096), (512, 8192)]
+        #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(4096, 65536)]
     else:
         args3['decoder-ffn-embed-dim'] = [4096, 8192, 65536]
         #args3['decoder-ffn-embed-dim'] = [4096]

@@ -76,8 +76,7 @@ for l in lines:
 
     if script_name in script2data and state in ['RUNNING', 'COMPLETED', 'PENDING']:
         # job already restarted successfully, no action needed, remove job
-        if args.verbose:
-            print('Script {1} has already been restarted and is running as {0}'.format(jobid, script_id))
+        print('Script {1} has already been restarted and is {2} as {0}'.format(jobid, script_id, state))
         restarts.discard(script_name)
         script2data.pop(script_name)
     if state not in states: continue

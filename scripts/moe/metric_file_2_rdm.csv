@@ -1,8 +1,8 @@
 name,start_regex,end_regex,contains,smaller_is_better,agg,reference_metric_name,value
 ppl,ppl,\| wps,| valid |,1,min,
 trainppl,ppl=,", wps",,1,last,
-#rdmppl,ppl,\| wps,rdmvalid,1,idx,ppl
-#worstppl,ppl,\| wps,worstvalid,1,idx,ppl
+rdmppl,ppl,\| wps,rdmvalid,1,idx,ppl
+worstppl,ppl,\| wps,worstvalid,1,idx,ppl
 score0,score 0:,,,0,early_stop,ppl
 score1,score 1:,,,0,early_stop,ppl
 #score2,score 2:,,,0,early_stop,ppl
@@ -12,6 +12,7 @@ p1,expert probability 1:,,,0,early_stop,ppl
 #f1,usage frequency 1:,,,0,early_stop,ppl
 #epoch,epoch,:,,0,last,
 steps,num_updates,\|,| valid |,0,last,
+#ppl15k,ppl,\| wps,| valid |,1,stop,steps,16000
 ppl30k,ppl,\| wps,| valid |,1,stop,steps,31000
 ppl45k,ppl,\| wps,| valid |,1,stop,steps,46000
 ppl60k,ppl,\| wps,| valid |,1,stop,steps,61000

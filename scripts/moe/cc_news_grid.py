@@ -3,7 +3,6 @@ import itertools
 import gpuscheduler
 import argparse
 import os
-import uuid
 import hashlib
 import glob
 import math

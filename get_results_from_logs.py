@@ -161,6 +161,7 @@ for config in configs:
         name = metric['name']
         x = np.array(config['METRICS'][name])
         if x.size == 0 and metric['agg'] != 'stop': continue
+        #if x.size == 0: continue
         if metric['agg'] == 'last': x = x[-1]
         elif metric['agg'] == 'mean': x = np.mean(x)
         elif metric['agg'] == 'min': x = np.nanmin(x)
@@ -173,7 +174,9 @@ for config in configs:
                 if val1 == value:
                     break
             if i > x.size: i = -1
-            x = x[i]
+            if x.size == 0: x = float('nan')
+            else:
+                x = x[i]
         elif metric['agg'] == 'idx':
             name2 = metric['reference_metric_name']
             x2 = config['METRICS'][name2]
