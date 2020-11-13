@@ -193,9 +193,13 @@ class HyakScheduler(object):
         array_job_list = join(self.config['SCRIPT_HISTORY'], 'array_jobs_{0}.sh'.format(array_id))
         script_list = []
         for i, (path, work_dir, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
+            nodes = gpus // 8
+            nodes += 1 if (gpus % 8) > 0 else 0
+            gpus = 8 if gpus > 8 else gpus
             if not isinstance(cmds, list): cmds = [cmds]
             lines = []
             script_file = join(self.config['SCRIPT_HISTORY'], 'init_{0}_{1}.sh'.format(array_id, i))
+
             script_list.append(script_file)
             log_path = join(join(self.config['LOG_HOME'], path))
             lines.append('#!/bin/bash')
@@ -205,8 +209,8 @@ class HyakScheduler(object):
                 lines.append('#SBATCH --account={0}'.format(self.config['account']))
             lines.append('#SBATCH --partition={0}'.format(self.config['partition']))
             lines.append('#')
-            lines.append('#SBATCH --nodes=1')
-            lines.append('#SBATCH --ntasks-per-node=1')
+            lines.append('#SBATCH --nodes={0}'.format(nodes))
+            lines.append('#SBATCH --ntasks-per-node={0}'.format(gpus))
             lines.append('#SBATCH --cpus-per-task={0}'.format(cores))
             lines.append('#SBATCH --time={0:02d}:{1:02}:00'.format(time_hours, time_minutes))
             if self.use_gres:
@@ -226,7 +230,7 @@ class HyakScheduler(object):
             lines.append('')
             lines.append('export PATH=$PATH:{0}'.format(join(self.config['ANACONDA_HOME'], 'bin')))
             for cmd_no, cmd in enumerate(cmds):
-                lines.append('echo "cmd{0}"'.format(cmd_no))
+                lines.append('echo "cmd{0}"'.format(cmd))
                 lines.append(cmd)
 
             if len(array_preamble) == 0:
@@ -260,18 +264,32 @@ class HyakScheduler(object):
             array_lines = []
             array_lines.append('')
             array_lines.append('')
+            array_lines.append('echo $SLURM_ARRAY_JOB_ID_$SLURM_ARRAY_TASK_ID'.format(cmd_no))
             for i, (path, work_dir, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
+                print(cmds)
+                bare_script_file = join(self.config['SCRIPT_HISTORY'], 'init_bare_{0}_{1}.sh'.format(array_id, i))
+                bare_lines = []
+                bare_lines.append('#!/bin/bash')
+                bare_lines.append('#')
+                bare_lines.append('export PATH=$PATH:{0}'.format(join(self.config['ANACONDA_HOME'], 'bin')))
+                for cmd_no, cmd in enumerate(cmds):
+                    bare_lines.append(cmd)
+                with open(bare_script_file, 'w') as f:
+                    for line in bare_lines:
+                        f.write('{0}\n'.format(line))
+
                 if i == 0:
                     array_lines.append('if [[ $SLURM_ARRAY_TASK_ID -eq {0} ]]'.format(i))
                     array_lines.append('then')
                 else:
                     array_lines.append('elif [[ $SLURM_ARRAY_TASK_ID -eq {0} ]]'.format(i))
                     array_lines.append('then')
-                array_lines.append('\t sleep {0}'.format(i*sleep_delay_seconds))
+                if sleep_delay_seconds > 0:
+                    array_lines.append('\t sleep {0}'.format(i*sleep_delay_seconds))
 
                 for cmd_no, cmd in enumerate(cmds):
-                    array_lines.append('\t echo "cmd{0}"'.format(cmd_no))
-                    array_lines.append('\t ' + cmd)
+                    #array_lines.append('\t ' + cmd)
+                    array_lines.append('\t srun bash ' + bare_script_file)
 
             array_lines.append('else')
             array_lines.append('\t echo $SLURM_ARRAY_TASK_ID')

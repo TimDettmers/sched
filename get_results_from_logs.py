@@ -170,6 +170,7 @@ for config in configs:
             name2 = metric['reference_metric_name']
             value = metric['value']
             x2 = config['METRICS'][name2]
+            if len(x2) == 0: continue
             for i, val1 in enumerate(x2):
                 if val1 == value:
                     break

@@ -26,6 +26,7 @@ args = parser.parse_args()
 
 #cmd2 = 'MKL_THREADING_LAYER=GNU fairseq-eval-lm --context-window 0 --task language_modeling --max-tokens 2048 --tokens-per-sample 128 --gen-subset {2} --skip-invalid-size-inputs-valid-test --path {1}/checkpoint_best.pt {0}'
 
+gpus = 16
 args2 = {}
 
 if args.tf:
@@ -33,7 +34,8 @@ if args.tf:
     cmd = '''python mesh_tensorflow/transformer/main.py  --gin_file=mesh_tensorflow/transformer/gin/defaults.gin --gin_file=mesh_tensorflow/transformer/gin/problems/t2t_lm1b_minxu.gin  --gin_param "run.mode='train'"'''
     args2['train_steps'] = 34400
 else:
-    cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode complete --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints  --skip-invalid-size-inputs-valid-test --validate-interval-updates 1000 --save-interval-updates 1000 --keep-interval-updates 1'
+    cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode complete --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints  --skip-invalid-size-inputs-valid-test --validate-interval-updates 1000 --save-interval-updates 1000 --keep-interval-updates 1 --distributed-port 12597 --distributed-world-size {0}'.format(gpus)
+
     if args.moe:
         args2['arch'] = 'moe_lm'
     else:
@@ -44,7 +46,8 @@ else:
     #args2['min-lr'] = 1e-09
     args2['warmup-init-lr'] = 1e-03
     args2['lr'] = 1e-03
-    args2['max-tokens'] = 4096
+    #args2['max-tokens'] = 4096
+    args2['max-tokens'] = 2048
     args2['min-loss-scale'] = 1e-10
     args2['tokens-per-sample'] = 256
     #args2['update-freq'] = 1
@@ -58,8 +61,7 @@ else:
     args2['decoder-layers'] = 4
 
 #baseline
-gpus = 8
-name = 'experts2'
+name = 'experts3'
 #name = 'base_drop_batch1'
 if args.tf:
     args2['dummy'] = name
@@ -69,7 +71,7 @@ else:
 ckp_name = logfolder
 #time_hours = 24*2
 
-cores_per_job = 4*gpus
+cores_per_job = 4
 mem = 32*gpus
 num_seeds = 1
 seed_offset = 0
@@ -83,7 +85,7 @@ time_minutes = 0
 #account = 'ark'
 #partition = 'scavenge'
 #partition = 'scavenge,learnfair'
-partition = 'learnfair'
+partition = 'dev'
 #partition = 'uninterrupted'
 #partition = 'dev'
 if args.tf:
@@ -139,13 +141,14 @@ else:
         args3['gate-sharing'] = ['multi']
         #args3['gate-type'] = ['word-level']
         args3[('iloss-weight', 'sample-type')] = [(0.01, 'argmax')]
-        args3[('gate-type', 'experts-per-seq')] = [('segments', 7), ('segments', 31), ('word-level', 255)]
+        #args3[('gate-type', 'experts-per-seq')] = [('segments', 7), ('segments', 31), ('word-level', 255)]
+        args3[('gate-type', 'experts-per-seq')] = [('segments', 7)]
         args3['moe-start-layer'] = [0]
         #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(256, 4096), (512, 8192), (4096, 65536)]
         #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(128, 4096), (256, 8192), (2048, 65536)] # 32 experts
-        args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(512, 4096), (1024, 8192), (8192, 65536)] # 8 experts
+        #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(512, 4096), (1024, 8192), (8192, 65536)] # 8 experts
         #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(256, 4096), (512, 8192)]
-        #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(4096, 65536)]
+        args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(4096, 65536)]
     else:
         args3['decoder-ffn-embed-dim'] = [4096, 8192, 65536]
         #args3['decoder-ffn-embed-dim'] = [4096]
@@ -155,7 +158,7 @@ else:
     args3['relu-dropout'] = [0.1]
         #args3[('max-update', 'warmup-updates', '')] = [(30000, 3000, ' data/wikitext-25')]#, (3250, 400, ' data/wikitext-5')]
     args3[('max-update', 'warmup-updates', '', 'update-freq')] = []
-    args3[('max-update', 'warmup-updates', '', 'update-freq')].append((34400, 10000, ' /private/home/timdettmers/data/t2t_data/data-bin', 8//gpus))
+    args3[('max-update', 'warmup-updates', '', 'update-freq')].append((34400, 10000, ' /private/home/timdettmers/data/t2t_data/data-bin', 16//gpus))
     args3['clip-norm'] = [0.0]
 
 

@@ -20,12 +20,12 @@ parser.add_argument('--baseline', action='store_true', help='Run baseline transf
 args = parser.parse_args()
 
 
-cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 5'
+gpus = 16
+cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 5 --distributed-port 12597 --distributed-world-size {0}'.format(gpus)
 cmd2 = 'fairseq-eval-lm --context-window 0 --task language_modeling --max-tokens 2048 --tokens-per-sample 128 --gen-subset {2} --skip-invalid-size-inputs-valid-test --path {1}/checkpoint_best.pt {0}'
 
 args2 = {}
 #baseline
-gpus = 8
 
 
 if args.baseline:
@@ -70,7 +70,7 @@ else:
 logfolder = 'moe/scaling/cc_news/{0}'.format(name)
 ckp_name = logfolder
 #time_hours = 24*2
-cores_per_job = 4*gpus
+cores_per_job = 5
 mem = 48*gpus
 num_seeds = 1
 seed_offset = 0

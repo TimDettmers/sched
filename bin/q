@@ -10,4 +10,4 @@ fi
 query_date=$(date --date="-$days_back day" -I)
 
 
-sacct -X --format="Elapsed,AllocGres,Jobid%18,State,Account,Partition,NodeList" -S $query_date
+sacct -X --format="Elapsed,AllocGres,Jobid%18,State,Account,Partition,NodeList%30" -S $query_date
