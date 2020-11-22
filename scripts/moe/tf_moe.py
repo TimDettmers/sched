@@ -19,6 +19,7 @@ parser.add_argument('--p', type=float, default=1.0, help='Probability with which
 parser.add_argument('--tf', action='store_true', help='Run tensorflow baseline transformer')
 parser.add_argument('--moe', action='store_true', help='Run mixture of expert baseline transformer')
 parser.add_argument('--eval', action='store_true', help='Run with perplexity eval mode in TF.')
+parser.add_argument('--inverse_sqrt', action='store_true', help='Use inverse_sqrt scheduler')
 args = parser.parse_args()
 
 
@@ -26,7 +27,7 @@ args = parser.parse_args()
 
 #cmd2 = 'MKL_THREADING_LAYER=GNU fairseq-eval-lm --context-window 0 --task language_modeling --max-tokens 2048 --tokens-per-sample 128 --gen-subset {2} --skip-invalid-size-inputs-valid-test --path {1}/checkpoint_best.pt {0}'
 
-gpus = 16
+gpus = 8
 args2 = {}
 
 if args.tf:
@@ -42,12 +43,13 @@ else:
         args2['arch'] = 'transformer_lm'
         args2['criterion'] = 'cross_entropy'
 
-    args2['lr-scheduler'] = 'inverse_sqrt'
-    #args2['min-lr'] = 1e-09
-    args2['warmup-init-lr'] = 1e-03
-    args2['lr'] = 1e-03
-    #args2['max-tokens'] = 4096
-    args2['max-tokens'] = 2048
+    if args.inverse_sqrt:
+        args2['lr-scheduler'] = 'inverse_sqrt'
+        args2['warmup-init-lr'] = 1e-03
+        args2['lr'] = 1e-03
+
+    args2['max-tokens'] = 4096
+    #args2['max-tokens'] = 2048
     args2['min-loss-scale'] = 1e-10
     args2['tokens-per-sample'] = 256
     #args2['update-freq'] = 1
@@ -59,9 +61,14 @@ else:
     #args2['decoder-ffn-embed-dim'] = 4096
     args2['decoder-attention-heads'] = 4
     args2['decoder-layers'] = 4
+    args2['decoder-embed-dim'] = 512
 
 #baseline
-name = 'experts3'
+if args.moe:
+    name = 'attention1'
+else:
+    name = 'baseline_lr13'
+
 #name = 'base_drop_batch1'
 if args.tf:
     args2['dummy'] = name
@@ -71,13 +78,13 @@ else:
 ckp_name = logfolder
 #time_hours = 24*2
 
-cores_per_job = 4
+cores_per_job = 1
 mem = 32*gpus
 num_seeds = 1
 seed_offset = 0
 constraint = 'volta'
 #time_hours = int(48/gpus)
-time_hours = 8
+time_hours = 6
 time_minutes = 0
 
 #account = 'cse'
@@ -85,18 +92,19 @@ time_minutes = 0
 #account = 'ark'
 #partition = 'scavenge'
 #partition = 'scavenge,learnfair'
-partition = 'dev'
+#partition = 'dev'
 #partition = 'uninterrupted'
 #partition = 'dev'
+partition = 'learnfair'
 if args.tf:
     change_dir = 'mesh/'
     repo = 'mesh'
     env_name = 'tf'
 else:
-    #change_dir = 'fairseq_private/'
-    #repo = 'fairseq_private'
-    change_dir = 'fairseq/'
-    repo = 'fairseq'
+    change_dir = 'fairseq_private/'
+    repo = 'fairseq_private'
+    #change_dir = 'fairseq/'
+    #repo = 'fairseq'
 exclude = ''
 
 s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=partition, use_gres=False)
@@ -121,7 +129,7 @@ if args.tf:
 else:
     if args.moe:
         args2['special-eval'] = ''
-        args3['num-experts'] = [8]
+        args3['num-experts'] = [16]
         #args3['experts-per-seq'] = [7]
         args3['moe-freq'] = [2]
         #args3['bloss-type'] = ['mean-prob-seg']
@@ -136,29 +144,76 @@ else:
         args3['use-ff-norm'] = [False]
         args3['no-expert-dropout'] = [True]
         #args3['agg-type'] = ['mean', 'conv']
-        args3['agg-type'] = ['mean']
+        args3['agg-type'] = ['attention']
         args3['loss-type'] = ['mean']
-        args3['gate-sharing'] = ['multi']
+        args3['gate-sharing'] = ['none']
         #args3['gate-type'] = ['word-level']
         args3[('iloss-weight', 'sample-type')] = [(0.01, 'argmax')]
-        #args3[('gate-type', 'experts-per-seq')] = [('segments', 7), ('segments', 31), ('word-level', 255)]
+        #args3[('gate-type', 'experts-per-seq')] = [('segments', 31), ('word-level', 255)]
         args3[('gate-type', 'experts-per-seq')] = [('segments', 7)]
         args3['moe-start-layer'] = [0]
         #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(256, 4096), (512, 8192), (4096, 65536)]
         #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(128, 4096), (256, 8192), (2048, 65536)] # 32 experts
         #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(512, 4096), (1024, 8192), (8192, 65536)] # 8 experts
         #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(256, 4096), (512, 8192)]
-        args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(4096, 65536)]
+        #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(4096, 65536)]
+
+        # OpenAI scaling laws
+        excess_expert_params = [args2['decoder-layers']/args3['moe-freq'][0]*(args3['num-experts'][0]-2)*p*args2['decoder-embed-dim']*2/args3['num-experts'][0] for p in [4096,8192,65546]]
+        lr = lambda params: (0.003239 + (-0.0001395*math.log(params)))
+        params = [2.1538e7, 3.885e7, 2.8946e8] # moe-freq = 2
+        base_lrs = [lr(params[0]), lr(params[1]), lr(params[2])]
+        adjusted_params = [p-e for e, p in zip(excess_expert_params, params)]
+        params = adjusted_params
+        lrs = [lr(params[0]), lr(params[1]), lr(params[2])]
+
+        #args2['lr'] = [lr(
+        if not args.inverse_sqrt:
+            lrs = [lr*2.0 for lr in lrs]
+            args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')] = []
+            args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((256, 4096, lrs[0], lrs[0]+1e-8, lrs[0]*0.1, lrs[0]*0.1+1e-8))
+            args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((512, 8192, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
+            args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((4096, 65536, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((128, 4096, lrs[0], lrs[0]+1e-8, lrs[0]*0.1, lrs[0]*0.1+1e-8))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((256, 8192, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((2048, 65536, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')] = [(128, 4096, lrs[0], lrs[0]+1e-8, lrs[0]*0.1, lrs[0]*0.1+1e-8),
+            #                                                                                              (256, 8192, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8)]
+            args2['lr-scheduler'] = 'cosine'
+        else:
+            lrs = [args2['lr']/blr*lr for blr, lr in zip(base_lrs, lrs)]
+            args2.pop('lr')
+            args2.pop('warmup-init-lr')
+            args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'warmup-init-lr')] = []
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'warmup-init-lr')].append((256, 4096, lrs[0], lrs[0]))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'warmup-init-lr')].append((512, 8192, lrs[1], lrs[1]))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'warmup-init-lr')].append((256, 4096, 3e-3, 3e-3))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'warmup-init-lr')].append((512, 8192, 3e-3, 3e-3))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'warmup-init-lr')].append((512, 8192, 3e-3, 3e-3))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'warmup-init-lr')].append((128, 4096, 3e-3, 3e-3))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'warmup-init-lr')].append((256, 8192, 3e-3, 3e-3))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'warmup-init-lr')].append((2048, 8192, 3e-3, 3e-3))
     else:
-        args3['decoder-ffn-embed-dim'] = [4096, 8192, 65536]
-        #args3['decoder-ffn-embed-dim'] = [4096]
+        args2['lr-scheduler'] = 'cosine'
+        args3[('decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')] = []
+        for factor in [2.0]:
+            lr = lambda params: (0.003239 + (-0.0001395*math.log(params)))*factor
+            params = [2.1007e7, 3.789e7, 2.7295e8]
+            lrs = [lr(params[0]), lr(params[1]), lr(params[2])]
+
+            args3[('decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((4096, lrs[0], lrs[0]+1e-8, lrs[0]*0.1, lrs[0]*0.1+1e-8))
+            args3[('decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((8192, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
+            args3[('decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((65536, lrs[2], lrs[2]+1e-8, lrs[2]*0.1, lrs[2]*0.1+1e-8))
 
     args3['dropout'] = [0.1]
     args3['attention-dropout'] = [0.1]
     args3['relu-dropout'] = [0.1]
         #args3[('max-update', 'warmup-updates', '')] = [(30000, 3000, ' data/wikitext-25')]#, (3250, 400, ' data/wikitext-5')]
     args3[('max-update', 'warmup-updates', '', 'update-freq')] = []
-    args3[('max-update', 'warmup-updates', '', 'update-freq')].append((34400, 10000, ' /private/home/timdettmers/data/t2t_data/data-bin', 16//gpus))
+    if args.inverse_sqrt:
+        args3[('max-update', 'warmup-updates', '', 'update-freq')].append((34400, 10000, ' /private/home/timdettmers/data/t2t_data/data-bin', 8//gpus))
+    else:
+        args3[('max-update', 'warmup-updates', '', 'update-freq')].append((34400, 3000, ' /private/home/timdettmers/data/t2t_data/data-bin', 8//gpus))
     args3['clip-norm'] = [0.0]
 
 
@@ -250,8 +305,10 @@ for seed in range(num_seeds):
 if args.dry:
     for i, job in enumerate(jobs):
         print(i, job)
+    print('GPUs: {0}'.format(gpus))
+    print('Time hours: {0}'.format(time_hours))
     print('total jobs', len(jobs))
-    print('Jobs will be written to: {0}'.format(logfolder))
+    print('Jobs will be written to: ~/logs/{0}{1}'.format(logfolder, ' (does not exist)' if not os.path.exists(join('~/logs',logfolder)) else ''))
     print('Jobs will be run on: {0}'.format(partition))
     print('Run in folder: {0}'.format(change_dir))
 
