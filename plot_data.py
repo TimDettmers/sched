@@ -77,7 +77,6 @@ if args.category == '':
     #ax.fig.suptitle(args.title, fontsize=18)
     #ax.set_xticklabels(rotation=args.tick_rotation)
 else:
-    print(df)
     num_values = np.unique(df[args.category]).size
     #plt.errorbar(x=df[args.plotx], y=df[args.ploty], fmt='none', xerror=df['SE'], ecolor='k', elinewidth=2)
     if args.categoricalx:
@@ -89,7 +88,13 @@ else:
         ax.fig.suptitle(args.title, fontsize=18)
         ax.set_xticklabels(rotation=args.tick_rotation)
     else:
-        sns.lineplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full', ci=95.0 if args.ci else None, err_style='bars')
+        print(df)
+        #sns.lineplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full', ci=95.0 if args.ci else None, err_style='bars')
+        #df[args.plotx] = df[args.plotx]/df[args.plotx].max()
+        #print(df[args.plotx])
+        ax = sns.relplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full')
+        plt.subplots_adjust(top=0.9)
+        ax.fig.suptitle(args.title, fontsize=18)
 
 plt.ylabel(args.namey, fontsize=13)
 plt.savefig(args.out, bbox_inches='tight')

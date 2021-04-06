@@ -266,7 +266,6 @@ class HyakScheduler(object):
             array_lines.append('')
             array_lines.append('echo $SLURM_ARRAY_JOB_ID_$SLURM_ARRAY_TASK_ID'.format(cmd_no))
             for i, (path, work_dir, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
-                print(cmds)
                 bare_script_file = join(self.config['SCRIPT_HISTORY'], 'init_bare_{0}_{1}.sh'.format(array_id, i))
                 bare_lines = []
                 bare_lines.append('#!/bin/bash')

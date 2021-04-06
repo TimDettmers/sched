@@ -20,7 +20,9 @@ parser.add_argument('--tf', action='store_true', help='Run tensorflow baseline t
 parser.add_argument('--moe', action='store_true', help='Run mixture of expert baseline transformer')
 parser.add_argument('--eval', action='store_true', help='Run with perplexity eval mode in TF.')
 parser.add_argument('--inverse_sqrt', action='store_true', help='Use inverse_sqrt scheduler')
+parser.add_argument('--adaptive', action='store_true', help='Use inverse_sqrt scheduler')
 args = parser.parse_args()
+
 
 
 #cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints'
@@ -53,7 +55,9 @@ else:
     args2['min-loss-scale'] = 1e-10
     args2['tokens-per-sample'] = 256
     #args2['update-freq'] = 1
-    args2['optimizer'] = 'adafactor'
+    #args2['optimizer'] = 'adafactor'
+    #args2['optimizer'] = 'lamb'
+    args2['optimizer'] = 'adam'
     #args2['lamb-betas'] = "'(0.9, 0.999)'"
     args2['fp16-no-flatten-grads'] = ''
     args2['weight-decay'] = 0.00
@@ -65,26 +69,26 @@ else:
 
 #baseline
 if args.moe:
-    name = 'attention1'
+    name = 'moe/adaptive_sparse'
 else:
-    name = 'baseline_lr13'
+    name = '8bit/1bn_bench_qfreq'
 
 #name = 'base_drop_batch1'
 if args.tf:
     args2['dummy'] = name
-    logfolder = 'moe/tf/baseline/{0}'.format(name)
+    logfolder = 'adam/{0}'.format(name)
 else:
-    logfolder = 'moe/tf/pytorch/{0}'.format(name)
+    logfolder = 'adam/{0}'.format(name)
 ckp_name = logfolder
 #time_hours = 24*2
 
-cores_per_job = 1
+cores_per_job = 4
 mem = 32*gpus
 num_seeds = 1
 seed_offset = 0
-constraint = 'volta'
+constraint = 'volta32gb'
 #time_hours = int(48/gpus)
-time_hours = 6
+time_hours = 8
 time_minutes = 0
 
 #account = 'cse'
@@ -128,30 +132,59 @@ if args.tf:
     #args3['gin_file'] = ['mesh_tensorflow/transformer/gin/models/lm_base.gin']
 else:
     if args.moe:
+        args2['num-experts'] = 16
         args2['special-eval'] = ''
-        args3['num-experts'] = [16]
+        #args3['num-experts'] = [32]
         #args3['experts-per-seq'] = [7]
-        args3['moe-freq'] = [2]
+        #args3['pre-moe-layers'] = [0, 3]
+        #args3['post-moe-layers'] = [0, 3]
         #args3['bloss-type'] = ['mean-prob-seg']
         #args3['bloss-type'] = ['mean-prob']
-        args3['criterion'] = ['moe_cross_entropy']
-        args3[('sample', 'sample-type')] = [(0, 'argmax')]#, (1, 'proportional')]
-        args3[('epsilon', 'epsilon-length')] = [(0.0, 1/4)]
-        args3['epsilon-min'] = [0.0]
+        if args.adaptive:
+            args3['criterion'] =  ['adaptive_loss']
+            args3['adaptive-input'] = [True]
+            args3[('adaptive-input-cutoff', 'adaptive-softmax-cutoff')] = [('512,4096', '512,4096')]
+            args3['tie-adaptive-proj'] = [True]
+            args3[('adaptive-input-factor', 'adaptive-softmax-factor')] = [(2, 2)]
+            args3['adaptive-softmax-dropout'] = [0.0, 0.2]
+            args3['tie-adaptive-weights'] = [True]
+        else:
+            args3['criterion'] = ['moe_cross_entropy']
+        #args3['mod-value'] = [4, 8]
         args3['counter-reset-period'] = [1]
         #args3['conv-context-size'] = [32, 128]
         args3['overflow-fraction'] = [0.0]
         args3['use-ff-norm'] = [False]
+        #args3['use-expert-dropout'] = [False]
         args3['no-expert-dropout'] = [True]
         #args3['agg-type'] = ['mean', 'conv']
-        args3['agg-type'] = ['attention']
+        args3['agg-type'] = ['mean']
+        #args3['loss-type'] = ['mean-segment-diff-normal']
         args3['loss-type'] = ['mean']
-        args3['gate-sharing'] = ['none']
+        #args3['gate-sharing'] = ['none']
+        args3['gate-sharing'] = ['single']
+        args3['dummy'] = ['standard_adam']
         #args3['gate-type'] = ['word-level']
-        args3[('iloss-weight', 'sample-type')] = [(0.01, 'argmax')]
-        #args3[('gate-type', 'experts-per-seq')] = [('segments', 31), ('word-level', 255)]
+        args3[('iloss-weight', 'sample-type')] = [(0.05, 'argmax')]
+        #args3[('iloss-weight', 'sample-type')] = [(0.01, 'mod')]
         args3[('gate-type', 'experts-per-seq')] = [('segments', 7)]
-        args3['moe-start-layer'] = [0]
+        #args3[('gate-type', 'experts-per-seq', 'hierarchical')] = [('word-level', 255, False)]
+        #args3[('gate-type', 'experts-per-seq')] = [('segments', 31), ('word-level', 255)]
+        #args3[('gate-type', 'experts-per-seq')] = [('segments', 7), ('segments', 31), ('word-level', 255)]
+        #args3[('gate-type', 'experts-per-seq', 'sample-type', 'experts-per-batch', 'iloss-weight')] = []
+        #args3[('gate-type', 'experts-per-seq', 'sample-type', 'experts-per-batch', 'iloss-weight')].append(('word-level', 255, 'sample-constraint', 8, 0.01))
+        #args3[('gate-type', 'experts-per-seq', 'sample-type', 'experts-per-batch', 'iloss-weight')].append(('segments', 7, 'argmax', 8, 0.01))
+        #args3[('gate-type', 'experts-per-seq', 'sample-type', 'experts-per-batch', 'iloss-weight')].append(('word-level', 255, 'sample-constraint', 8, 0.01))
+        #args3[('gate-type', 'experts-per-seq', 'sample-type', 'experts-per-batch', 'iloss-weight')].append(('word-level', 255, 'sample-constraint', 4, 0.01))
+        args3['moe-freq'] = [2]
+        args3['moe-start-layer'] = [1]
+        args3['str-loss'] = [0.00]
+        args3['target-sparsity'] = [0.9]
+        #args3[('adaptive-hidden', 'adaptive-lossw', 'adaptive-ramp')] = [(False, 0, 0), (True, 1e-6, 0.125)]
+        #args3[('adaptive-hidden', 'adaptive-lossw', 'adaptive-ramp')] = [(False, 1e-6, 0.125)]
+        #args3['moe-end-layer'] = [4]
+        #args2['decoder-layers'] = 6
+
         #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(256, 4096), (512, 8192), (4096, 65536)]
         #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(128, 4096), (256, 8192), (2048, 65536)] # 32 experts
         #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(512, 4096), (1024, 8192), (8192, 65536)] # 8 experts
@@ -159,11 +192,23 @@ else:
         #args3[('moe-ff-dim', 'decoder-ffn-embed-dim')] = [(4096, 65536)]
 
         # OpenAI scaling laws
-        excess_expert_params = [args2['decoder-layers']/args3['moe-freq'][0]*(args3['num-experts'][0]-2)*p*args2['decoder-embed-dim']*2/args3['num-experts'][0] for p in [4096,8192,65546]]
-        lr = lambda params: (0.003239 + (-0.0001395*math.log(params)))
+        #core = args2['decoder-embed-dim']-512
+        #additional_params = [2*args2['decoder-layers']*((core*p)+(core*(p//args2['num-experts']//16)*2)) for p in [4096,8192,65546]]
+        #excess_expert_params = [args2['decoder-layers']/args3['moe-freq'][0]*(args2['num-experts']-2)*p*args2['decoder-embed-dim']*2/args2['num-experts'] for p in [4096,8192,65546]]
+
+        ##excess_expert_params = [0,0,0]
+        #lr = lambda params: (0.003239 + (-0.0001395*np.log(params)))
+        #base_lrs = [lr(params[0]), lr(params[1]), lr(params[2])]
+        #adjusted_params = [p-e for e, p, a in zip(excess_expert_params, params, additional_params)]
+
         params = [2.1538e7, 3.885e7, 2.8946e8] # moe-freq = 2
-        base_lrs = [lr(params[0]), lr(params[1]), lr(params[2])]
+        excess_expert_params = [args2['decoder-layers']/args3['moe-freq'][0]*(args2['num-experts']-2)*p*args2['decoder-embed-dim']*2/args2['num-experts'] for p in [4096,8192,65546]]
+        lr = lambda params: (0.003239 + (-0.0001395*math.log(params)))
         adjusted_params = [p-e for e, p in zip(excess_expert_params, params)]
+        #print('p', params)
+        #print('add', additional_params)
+        #print('excess', excess_expert_params)
+        #print('adjusted', adjusted_params)
         params = adjusted_params
         lrs = [lr(params[0]), lr(params[1]), lr(params[2])]
 
@@ -171,14 +216,21 @@ else:
         if not args.inverse_sqrt:
             lrs = [lr*2.0 for lr in lrs]
             args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')] = []
-            args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((256, 4096, lrs[0], lrs[0]+1e-8, lrs[0]*0.1, lrs[0]*0.1+1e-8))
-            args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((512, 8192, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
-            args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((4096, 65536, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((256//(args2['num-experts']//16), 4096, lrs[0], lrs[0]+1e-8, lrs[0]*0.1, lrs[0]*0.1+1e-8))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((512//(args2['num-experts']//16), 8192, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
+            args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((4096//(args2['num-experts']//16), 65536, lrs[2], lrs[2]+1e-8, lrs[2]*0.1, lrs[2]*0.1+1e-8))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((4096//(args2['num-experts']//16), 4096, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
             #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((128, 4096, lrs[0], lrs[0]+1e-8, lrs[0]*0.1, lrs[0]*0.1+1e-8))
             #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((256, 8192, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
             #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((2048, 65536, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
             #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')] = [(128, 4096, lrs[0], lrs[0]+1e-8, lrs[0]*0.1, lrs[0]*0.1+1e-8),
             #                                                                                              (256, 8192, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8)]
+            params_lost = (512*64*1024*2) - (512*4*1024*2) + (6*512*512)
+            print(params_lost)
+            print(params_lost/args2['num-experts']/2/512/1024)
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((256//(args2['num-experts']//16), 4096//8, lrs[0], lrs[0]+1e-8, lrs[0]*0.1, lrs[0]*0.1+1e-8))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((512//(args2['num-experts']//16), 8192//8, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
+            #args3[('moe-ff-dim', 'decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((4096//(args2['num-experts']//16), 65536//8, lrs[2], lrs[2]+1e-8, lrs[2]*0.1, lrs[2]*0.1+1e-8))
             args2['lr-scheduler'] = 'cosine'
         else:
             lrs = [args2['lr']/blr*lr for blr, lr in zip(base_lrs, lrs)]
@@ -201,13 +253,32 @@ else:
             params = [2.1007e7, 3.789e7, 2.7295e8]
             lrs = [lr(params[0]), lr(params[1]), lr(params[2])]
 
-            args3[('decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((4096, lrs[0], lrs[0]+1e-8, lrs[0]*0.1, lrs[0]*0.1+1e-8))
-            args3[('decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((8192, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
+                #for i in range(2):
+                    #scaled_lr = lrs[0] + (lrs[0]*(i/2))
+                    #args3[('decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((4096, scaled_lr, scaled_lr+1e-8, scaled_lr*0.1, scaled_lr*0.1+1e-8))
+            #args3[('decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((4096, lrs[0], lrs[0]+1e-8, lrs[0]*0.1, lrs[0]*0.1+1e-8))
+            #args3[('decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((8192, lrs[1], lrs[1]+1e-8, lrs[1]*0.1, lrs[1]*0.1+1e-8))
             args3[('decoder-ffn-embed-dim', 'lr', 'max-lr', 'min-lr', 'warmup-init-lr')].append((65536, lrs[2], lrs[2]+1e-8, lrs[2]*0.1, lrs[2]*0.1+1e-8))
-
-    args3['dropout'] = [0.1]
-    args3['attention-dropout'] = [0.1]
-    args3['relu-dropout'] = [0.1]
+        #args3['adam-betas'] = ["'(0.9, 0.999)'", "'(0.9, 0.995)'"]
+        #args3['adam-eps'] = [1e-8, 1e-7]
+        #args3[('memory-efficient-fp16', 'adam-bits')] = [(True, 32), (False, 32), (True, 8)]
+        args3[('memory-efficient-fp16', 'adam-bits')] = [(True, 8)]
+        args3['adam8bits-offset'] = [0.01]
+        #args3['emb-max-norm'] = [0.0, 1.0]
+        args3['prob-quant'] = [True]
+        #args3['percentile-clipping'] = [100, 50, 25]
+        args3['use-emb-norm'] = [True]
+        args3['adam8bits-qfreq'] = [1, 2, 5, 10, 25]
+        #args2['adaptive-span'] = 2
+        #args3['adaptive-init'] = [0.0, 0.2]
+        #args3['adaptive-lossw'] = [1e-6, 1e-7]
+        #args3['adaptive-ramp'] = [1/8, 1/16]
+        #args3['pool-size'] = [2, 4, 8]
+        #args3['pool-dim'] = [2]
+    #args3[('decoder-input-dim', 'decoder-output-dim')] = [(512, 512)]
+    #args3['dropout'] = [0.0]
+    #args3['attention-dropout'] = [0.0]
+    #args3['relu-dropout'] = [0.0]
         #args3[('max-update', 'warmup-updates', '')] = [(30000, 3000, ' data/wikitext-25')]#, (3250, 400, ' data/wikitext-5')]
     args3[('max-update', 'warmup-updates', '', 'update-freq')] = []
     if args.inverse_sqrt:
@@ -216,10 +287,17 @@ else:
         args3[('max-update', 'warmup-updates', '', 'update-freq')].append((34400, 3000, ' /private/home/timdettmers/data/t2t_data/data-bin', 8//gpus))
     args3['clip-norm'] = [0.0]
 
+    #args3['down-proj-dim'] = [512, 256]
 
+
+for k,v in args3.items():
+    print(k)
+    print(v)
+    print('='*80)
 args4 = []
 args5 = {}
 args6 = {}
+#args2['dummy'] = 'max_norm = 1.0'
 
 rdm = np.random.RandomState(5345)
 
@@ -242,7 +320,6 @@ for key, values in args3.items():
             keyvalues.append(arg)
     elif isinstance(key, str):
         keyvalues = []
-        print(values)
         for v in values:
             if v is True: v = ''
             if v is False:
@@ -278,7 +355,7 @@ for seed in range(num_seeds):
                         for key, values in pdict.items():
                             for v in values:
                                 job_cmd5 = job_cmd + ' --{0} {1}'.format(key, v)
-                                #job_cmd5 = job_cmd5 + ' --seed {0}'.format(seed)
+                                job_cmd5 = job_cmd5 + ' --seed {0}'.format(seed)
                                 checkpoint_dir = '/checkpoint/timdettmers/{1}/{0}'.format(hashlib.md5(str(job_cmd5).encode('utf-8')).hexdigest(), ckp_name)
                                 if not os.path.exists(checkpoint_dir): os.makedirs(checkpoint_dir)
                                 save_dir = ' --{1}dir {0} '.format(checkpoint_dir, 'save-' if not args.tf else 'model_')
@@ -291,13 +368,14 @@ for seed in range(num_seeds):
             else:
                 #job_cmd = job_cmd + ' --seed {0}'.format(seed)
                 checkpoint_dir = '/checkpoint/timdettmers/{1}/{0}'.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
+                print(checkpoint_dir)
                 save_dir = ' --{1}dir {0} '.format(checkpoint_dir, 'save-' if not args.tf else 'model_')
                 job_cmd = job_cmd + save_dir
                 if args.eval: job_cmd = job_cmd.replace("'train'", "'perplexity_eval'")
                 if args.tf:
                     cmds = ['export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/private/home/timdettmers/local/lib64', 'source /private/home/timdettmers/.bashrc', 'source activate '+env_name, job_cmd]
                 else:
-                    cmds = [job_cmd]
+                    cmds = ['module load gcc/7.3.0', job_cmd]
                 if rdm.rand(1) <= args.p:
                     jobs.append(job_cmd)
                     s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)

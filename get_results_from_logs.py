@@ -150,7 +150,7 @@ if args.diff:
     print('Hyperparameters:')
     print('='*80)
     for key, values in key2values.items():
-        if len(values) == 1 or len(values) >= n-10: continue
+        if len(values) == 1 or len(values) == n: continue
         keyvalues = '{0}: '.format(key)
         keyvalues += '{' + ','.join(values) + '}'
         print(keyvalues)
@@ -325,4 +325,5 @@ if args.csv is not None:
     to_drop = [col for col in df.columns if col not in args.groupby and col not in metrics]
     df = df.drop(columns=to_drop)
     df.to_csv(args.csv, sep=';', index=False)
+    print(args.csv)
 
