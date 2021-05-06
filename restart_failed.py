@@ -70,6 +70,7 @@ for l in lines:
     if 'array' in script:
         with open(script) as f:
             lines = f.readlines()
+        if array_id >= len(lines): continue
         script_name = lines[array_id].strip()
     else:
         script_name = script
@@ -77,8 +78,8 @@ for l in lines:
     if script_name in script2data and state in ['RUNNING', 'COMPLETED', 'PENDING']:
         # job already restarted successfully, no action needed, remove job
         print('Script {1} has already been restarted and is {2} as {0}'.format(jobid, script_id, state))
-        restarts.discard(script_name)
-        script2data.pop(script_name)
+        #restarts.discard(script_name)
+        #script2data.pop(script_name)
     if state not in states: continue
     # add nodes that failed in the past even though the job to restart might not have failed on it
     if state == 'FAILED' and not args.no_exclude: banned.add(node)

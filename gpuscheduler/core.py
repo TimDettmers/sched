@@ -182,12 +182,14 @@ class HyakScheduler(object):
         if self.verbose:
             print('#SBATCH --time={0:02d}:{1:02d}:00'.format(time_hours, time_minutes))
 
-    def run_jobs(self, as_array=True, sleep_delay_seconds=0):
+    def run_jobs(self, as_array=True, sleep_delay_seconds=0, single_process=False, log_id=None, skip_cmds=0):
 
         array_preamble = []
 
-        array_id = str(uuid.uuid4())
-        array_id = hashlib.md5(str(self.jobs[0][2]).encode('utf-8')).hexdigest()
+
+        strval = self.jobs[0][2]
+        if not isinstance(strval, str): strval = strval[0]
+        array_id = hashlib.md5(strval.encode('utf-8')).hexdigest() if log_id is None else log_id
 
         array_file = join(self.config['SCRIPT_HISTORY'], 'array_init_{0}.sh'.format(array_id))
         array_job_list = join(self.config['SCRIPT_HISTORY'], 'array_jobs_{0}.sh'.format(array_id))
@@ -210,8 +212,12 @@ class HyakScheduler(object):
             lines.append('#SBATCH --partition={0}'.format(self.config['partition']))
             lines.append('#')
             lines.append('#SBATCH --nodes={0}'.format(nodes))
-            lines.append('#SBATCH --ntasks-per-node={0}'.format(gpus))
-            lines.append('#SBATCH --cpus-per-task={0}'.format(cores))
+            if single_process:
+                lines.append('#SBATCH --ntasks-per-node=1')
+                lines.append('#SBATCH --cpus-per-task={0}'.format(cores*gpus))
+            else:
+                lines.append('#SBATCH --ntasks-per-node={0}'.format(gpus))
+                lines.append('#SBATCH --cpus-per-task={0}'.format(cores))
             lines.append('#SBATCH --time={0:02d}:{1:02}:00'.format(time_hours, time_minutes))
             if self.use_gres:
                 lines.append('#SBATCH --gres=gpu:{0}'.format(gpus))
@@ -229,12 +235,12 @@ class HyakScheduler(object):
             lines.append('#SBATCH --error={0}'.format(join(log_path, array_id + '_{0}.err'.format(i))))
             lines.append('')
             lines.append('export PATH=$PATH:{0}'.format(join(self.config['ANACONDA_HOME'], 'bin')))
-            for cmd_no, cmd in enumerate(cmds):
+            for cmd_no, cmd in enumerate(cmds[skip_cmds:]):
                 lines.append('echo "cmd{0}"'.format(cmd))
                 lines.append(cmd)
 
             if len(array_preamble) == 0:
-                array_preamble = copy.deepcopy(lines[:-(2*len(cmds) + 1)])
+                array_preamble = copy.deepcopy(lines[:-(2*len(cmds[skip_cmds:]) + 1)])
                 array_preamble[2] = '#SBATCH --job-name={0}'.format(array_job_list)
                 array_preamble[-3] = '#SBATCH --output={0}'.format(join(log_path, array_id + '_%a.log'))
                 array_preamble[-2] = '#SBATCH --error={0}'.format(join(log_path, array_id + '_%a.err'))
@@ -266,13 +272,12 @@ class HyakScheduler(object):
             array_lines.append('')
             array_lines.append('echo $SLURM_ARRAY_JOB_ID_$SLURM_ARRAY_TASK_ID'.format(cmd_no))
             for i, (path, work_dir, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
-                print(cmds)
                 bare_script_file = join(self.config['SCRIPT_HISTORY'], 'init_bare_{0}_{1}.sh'.format(array_id, i))
                 bare_lines = []
                 bare_lines.append('#!/bin/bash')
                 bare_lines.append('#')
                 bare_lines.append('export PATH=$PATH:{0}'.format(join(self.config['ANACONDA_HOME'], 'bin')))
-                for cmd_no, cmd in enumerate(cmds):
+                for cmd_no, cmd in enumerate(cmds[skip_cmds:]):
                     bare_lines.append(cmd)
                 with open(bare_script_file, 'w') as f:
                     for line in bare_lines:
@@ -287,9 +292,7 @@ class HyakScheduler(object):
                 if sleep_delay_seconds > 0:
                     array_lines.append('\t sleep {0}'.format(i*sleep_delay_seconds))
 
-                for cmd_no, cmd in enumerate(cmds):
-                    #array_lines.append('\t ' + cmd)
-                    array_lines.append('\t srun bash ' + bare_script_file)
+                array_lines.append('\t srun bash ' + bare_script_file)
 
             array_lines.append('else')
             array_lines.append('\t echo $SLURM_ARRAY_TASK_ID')

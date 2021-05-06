@@ -27,7 +27,7 @@ gpus = 8
 
 
 if args.baseline:
-    #args2['optimizer'] = 'adam'
+    args2['optimizer'] = 'adam'
     #args2['adam-betas'] = "'(0.9, 0.98)'"
     #args2['lr'] = 0.0005
 

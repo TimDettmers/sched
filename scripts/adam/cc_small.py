@@ -20,9 +20,8 @@ parser.add_argument('--baseline', action='store_true', help='Run baseline transf
 args = parser.parse_args()
 
 
-gpus = 64
-cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 5 --distributed-port 12597 --distributed-world-size {0}'.format(gpus)
-cmd2 = 'fairseq-eval-lm --context-window 0 --task language_modeling --max-tokens 2048 --tokens-per-sample 128 --gen-subset {2} --skip-invalid-size-inputs-valid-test --path {1}/checkpoint_best.pt {0}'
+gpus = 8
+cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 5 --distributed-port 12597 --distributed-world-size {0} --valid-subset valid'.format(gpus)
 
 args2 = {}
 #baseline
@@ -54,18 +53,18 @@ else:
     args2['max-tokens'] = 2048
 
 if args.baseline:
-    name = '12h_max_memory2'
+    name = 'sensitivity_lr1'
     constraint = 'volta32gb'
 else:
     name = 'moe30'
     constraint = 'volta32gb'
 
-logfolder = 'adam/8bit/cc_news/{0}'.format(name)
+logfolder = 'adam/cc_small/{0}'.format(name)
 ckp_name = logfolder
 #time_hours = 24*2
 cores_per_job = 5
 mem = 48*(8 if gpus > 8 else gpus)
-num_seeds = 1
+num_seeds = 2
 seed_offset = 0
 time_hours = 12
 time_minutes = 0
@@ -99,10 +98,6 @@ model_dim = 64
 doublings = 4
 
 num_experts = 64
-ff_dim = 64*1024
-moe_ff_dim = 64*1024//num_experts
-heads = 8
-model_dim = 512
 
 if not args.baseline:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'moe-ff-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim', 'num-experts')
@@ -145,7 +140,17 @@ if not args.baseline:
 else:
     key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'dummy', 'decoder-input-dim', 'decoder-output-dim')
     args3[key] = []
-    args3[key].append((model_dim, ff_dim, heads, 0, model_dim, model_dim))
+    for model_dim in [1024]:
+        heads = 8*(model_dim//512)
+        for ff_dim in [8192]:
+            args3[key].append((model_dim, ff_dim, heads, 0, model_dim, model_dim))
+
+seqs_per_mini_batch = 512 # OpenAI scaling laws mini-batch size
+
+args3['decoder-layers'] = [10]
+args3[('max-tokens', 'update-freq', 'tokens-per-sample')] = []
+#args3[('max-tokens', 'update-freq', 'memory-efficient-fp16', 'adam-bits', 'decoder-ffn-embed-dim')].append((2048, seqs_per_mini_batch//(2048//args2['tokens-per-sample'])//gpus, True, 32, 81920))
+args3[('max-tokens', 'update-freq', 'tokens-per-sample')].append((2048, 128//gpus, 512))
     #for ff_factor in [4, 8, 16, 32, 64]:
     #for ff_factor in [128]:
     #    for i in range(doublings):
@@ -156,12 +161,10 @@ else:
     #        ff_dim = model_dim*factor*ff_factor
     #        args3[key].append((emb_dim, ff_dim, heads, i, emb_dim, emb_dim))
 
-args2['validate-interval-updates'] = 500
+args2['validate-interval-updates'] = 1000
 #args3['decoder-layers'] = [4, 8]
 #args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0), (0.1, 0.1, 0.1)]
-args3['decoder-layers'] = [6]
 args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0)]
-args3['clip-norm'] = [0.0]
 
 # WT
 #args3[('max-update', 'warmup-updates', '')] = [(80000, 24000, ' data/wikitext-103')]
@@ -171,40 +174,31 @@ args3['clip-norm'] = [0.0]
 
 # CC-News
 #args3[('max-update', 'warmup-updates', '')] = [(150000, 15000, ' data/cc_news')]
-args3[('max-update', 'warmup-updates', '')] = [(150000, 3000, ' data/cc_news')]
+args3[('max-update', 'warmup-updates', '')] = [(16000, 3000, ' data/cc_news_small')]
 args2['save-interval-updates'] = 1000
-args2['tokens-per-sample'] = 512
-seqs_per_mini_batch = 512 # OpenAI scaling laws mini-batch size
-
-args3[('max-tokens', 'update-freq', 'memory-efficient-fp16', 'adam-bits', 'decoder-ffn-embed-dim')] = []
-args3[('max-tokens', 'update-freq', 'memory-efficient-fp16', 'adam-bits', 'decoder-ffn-embed-dim')].append((2048, seqs_per_mini_batch//(2048//args2['tokens-per-sample'])//gpus, True, 32, 81920))
-args3[('max-tokens', 'update-freq', 'memory-efficient-fp16', 'adam-bits', 'decoder-ffn-embed-dim')].append((2048, seqs_per_mini_batch//(2048//args2['tokens-per-sample'])//gpus, True, 8, 131072))
+#args3['tokens-per-sample'] = [256, 512]
+#args3[('max-tokens', 'update-freq', 'memory-efficient-fp16', 'adam-bits', 'decoder-ffn-embed-dim')].append((2048, seqs_per_mini_batch//(2048//args2['tokens-per-sample'])//gpus, True, 8, 131072))
 #args3['update-freq'] = [seqs_per_mini_batch//(args2['max-tokens']//args2['tokens-per-sample'])//gpus]
-
-
-data_path = 'data/wikitext-10'
-valid_subsets = []
 
 #args3['decoder-layers'] = [3]
 args3['weight-decay'] = [0.00]
 
 #args2['optimizer'] = 'lamb'
-#args2['lamb-betas'] = "'(0.9, 0.999)'"
 #args2['fp16-no-flatten-grads'] = ''
 #args3['lr'] = [0.001]
 
 #args2['warmup-init-lr'] = 1e-03
 #args2['lr'] = 1e-03
-params = 9e8 
-if args.baseline:
+key = ('lr', 'max-lr', 'min-lr', 'warmup-init-lr')
+args3[key] = []
+#for params in [1e4, 1e5, 1e6]:
+#for params in [1e1,  1e3, 1e2, 5e3]:
+for params in [1e4, 1e5, 1e6, 1e7, 1e8]:
     lr = 0.003239 + (-0.0001395*math.log(params))
-else:
-    excess_expert_params = [args3['decoder-layers'][0]/args3['moe-freq'][0]*(num_experts-2)*p*model_dim*2/num_experts for p in [128*1024]][0]
-    lr = 0.003239 + (-0.0001395*math.log(params-excess_expert_params))
-args2['lr'] = lr
-args2['max-lr'] = lr
-args2['min-lr'] = lr*0.1
-args2['warmup-init-lr'] = lr*0.1 + 1e-8
+    args3[key].append((lr, lr+1e-8, lr*0.1, lr*0.1 + 1e-8))
+    #args3[key].append((lr, lr+1e-8, lr*0.1, lr*1.0 + 1e-8))
+
+print(args3[key])
 args2['lr-scheduler'] = 'cosine'
 
 #args2['warmup-init-lr'] = 1e-03
@@ -213,7 +207,27 @@ args2['lr-scheduler'] = 'cosine'
 args2['optimizer'] = 'adam'
 args2['fp16-no-flatten-grads'] = ''
 args2['min-loss-scale'] = 1e-10
+args3['fused'] = [False]
+args3['dist-scale'] = [1.00]
 
+#args3[('clip-norm', 'percentile-clipping')] = [(0.0, 2), (0.0, 5)]
+args3['adam8bits-offset'] = [1/512]
+#args3['emb-max-norm'] = [0.0, 1.0]
+args3['prob-quant'] = [False]
+#args3['adam-betas'] = ["'(0.87, 0.999)'", "'(0.93, 0.999)'", "'(0.9, 0.999)'", "'(0.9, 0.98)'", "'(0.9, 0.99)'"]
+args3['adam-eps'] = [1e-7]
+args3['adam8bits-qfreq'] = [1]#, 5, 10, 25]
+#args3['unorm'] = ['none', 'percentile', 'scale']
+#args3[('adam8bits-method', 'use-emb-norm')] = [('quantile', True), ('dynamic_tree', True), ('linear', True)]
+#args3[('adam8bits-method', 'use-emb-norm')] = [('quantile', True)]
+#args3['adam8bits-method'] = ['quantile', 'dynamic_tree', 'linear']
+#args3['adam8bits-method'] = ['quantile', 'dynamic_tree']
+args3['use-emb-norm'] = [True]
+args3[('memory-efficient-fp16', 'adam-bits', 'adam8bits-method')] = [(True, 8, 'quantile'), (True, 32, 'quantile'), (True, 8, 'dynamic_tree')]
+args3[('clip-norm', 'percentile-clipping')] = [(0.0, 5)]
+#args3['clip-norm'] = [0.4, 0.8]
+
+print(list(args3.keys()))
 args4 = []
 
 args5 = {}
@@ -281,8 +295,6 @@ for seed in range(num_seeds):
                                 save_dir = ' --save-dir {0}'.format(checkpoint_dir)
                                 job_cmd5 = job_cmd5 + save_dir
                                 cmds = [job_cmd5]
-                                for subset in valid_subsets:
-                                    cmds.append(cmd2.format(data_path, checkpoint_dir, subset))
                                 if rdm.rand(1) <= args.p:
                                     jobs.append(job_cmd5)
                                     s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
@@ -292,8 +304,6 @@ for seed in range(num_seeds):
                 save_dir = ' --save-dir {0}'.format(checkpoint_dir)
                 job_cmd = job_cmd + save_dir
                 cmds = [job_cmd]
-                for subset in valid_subsets:
-                    cmds.append(cmd2.format(data_path, checkpoint_dir, subset))
                 if rdm.rand(1) <= args.p:
                     jobs.append(job_cmd)
                     s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)

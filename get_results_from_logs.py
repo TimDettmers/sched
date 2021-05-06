@@ -44,6 +44,7 @@ parser.add_argument('--diff', action='store_true', help='Outputs the different h
 parser.add_argument('--agg', type=str, default='last', choices=['mean', 'last', 'min', 'max'], help='How to aggregate the regex-matched scores. Default: Last')
 parser.add_argument('--limits', nargs='+', type=int, default=None, help='Sets the [min, max] range of the metric value (two space separated values).')
 parser.add_argument('--metric-file', type=str, default=None, help='A metric file which tracks multiple metrics as once.')
+parser.add_argument('--median', action='store_true', help='Use median instead of mean.')
 
 args = parser.parse_args()
 
@@ -117,11 +118,13 @@ for folder in folders:
                         #    break
                         if name not in config['METRICS']: config['METRICS'][name] = []
                         try:
-                            config['METRICS'][name].append(float(matches[0]))
+                            val = matches[0].strip()
+                            if ',' in val: val = val.replace(',', '')
+                            config['METRICS'][name].append(float(val))
                         except:
                             print(line)
                             print(regex)
-                            print(matches)
+                            print(matches[0])
                             continue
 
         if has_config:
@@ -150,7 +153,7 @@ if args.diff:
     print('Hyperparameters:')
     print('='*80)
     for key, values in key2values.items():
-        if len(values) == 1 or len(values) >= n-10: continue
+        if len(values) == 1 or len(values) == n: continue
         keyvalues = '{0}: '.format(key)
         keyvalues += '{' + ','.join(values) + '}'
         print(keyvalues)
@@ -258,7 +261,7 @@ df = pd.DataFrame(pandas_data, columns=all_cols)
 
 for col in args.groupby:
     if col not in all_cols:
-        print('Column {0} does not exist'.format(col))
+        print(f'Column {0} does not exist {col}')
     assert col in all_cols
 
 if df.size == 0:
@@ -273,11 +276,18 @@ output['logfiles']= df.groupby(by=args.groupby)['NAME'].transform(lambda x: ' '.
 for metric in metrics:
     name = metric['name']
     df[name] = df[name].astype(np.float32)
-    output[name] = df.groupby(by=args.groupby)[name].mean().to_frame(name).reset_index()[name]
-    se95 = df.groupby(by=args.groupby)[name].sem().to_frame(name).reset_index()
-    output['{0}_lower'.format(name)] = output[name]-(se95[name]*1.96)
-    output['{0}_upper'.format(name)] = output[name]+(se95[name]*1.96)
-    output['{0}_se'.format(name)] = se95[name]
+    if args.median:
+        output[name] = df.groupby(by=args.groupby)[name].median().to_frame(name).reset_index()[name]
+        se95 = df.groupby(by=args.groupby)[name].sem().to_frame(name).reset_index()
+        output['{0}_lower'.format(name)] = output[name]-(se95[name]*1.96)
+        output['{0}_upper'.format(name)] = output[name]+(se95[name]*1.96)
+        output['{0}_se'.format(name)] = se95[name]
+    else:
+        output[name] = df.groupby(by=args.groupby)[name].mean().to_frame(name).reset_index()[name]
+        se95 = df.groupby(by=args.groupby)[name].sem().to_frame(name).reset_index()
+        output['{0}_lower'.format(name)] = output[name]-(se95[name]*1.96)
+        output['{0}_upper'.format(name)] = output[name]+(se95[name]*1.96)
+        output['{0}_se'.format(name)] = se95[name]
     output['n'] = df.groupby(by=args.groupby)[name].size().to_frame().reset_index()[name]
     output['idx'] = df.groupby(by=args.groupby)[name].apply(lambda x: x.index.tolist()).to_frame().reset_index()[name]
 
@@ -308,7 +318,7 @@ for index, row in output.iterrows():
         upper = row['{0}_upper'.format(name)]
         se = row['{0}_se'.format(name)]
         n = int(row['n'])
-        print(('{5} mean (SE): {0:.' + str(args.num_digits) + 'f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}').format(value, lower, upper, n, se, name))
+        print(('{5} {6} (SE): {0:.' + str(args.num_digits) + 'f} ({4:.4f}). 95% CI ({1:.3f}, {2:.3f}). Sample size: {3}').format(value, lower, upper, n, se, name, 'median' if args.median else 'mean'))
     if args.vim:
         files = ' '.join([df.iloc[idx]['NAME'] for idx in row['idx']])
         print('vim {0}'.format(files))
@@ -325,4 +335,5 @@ if args.csv is not None:
     to_drop = [col for col in df.columns if col not in args.groupby and col not in metrics]
     df = df.drop(columns=to_drop)
     df.to_csv(args.csv, sep=';', index=False)
+    print(args.csv)
 
