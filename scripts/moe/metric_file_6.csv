@@ -1,0 +1,8 @@
+name,start_regex,end_regex,contains,smaller_is_better,agg,early_stopping_metric_name
+ppl,ppl,\| wps,valid,1,min,
+specz score 0,score 0:,,,0,early_stop,ppl
+specz score 1,score 1:,,,0,early_stop,ppl
+specz score 2,score 2:,,,0,early_stop,ppl
+specz score 3,score 3:,,,0,early_stop,ppl
+specz score 4,score 4:,,,0,early_stop,ppl
+specz score 5,score 5:,,,0,early_stop,ppl
