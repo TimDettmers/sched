@@ -13,10 +13,15 @@ BLEU,"0 = "," 5",,0,max,
 #accuracy,accuracy,\| wps,| valid |,0,max,
 #corr,corr,\| wps,| valid |,0,max,
 #loss,loss,\| nll,| valid |,1,min,
+ppl,ppl,\| wps,| valid |,1,min,
+accuracy,accuracy,\| wps,| valid |,0,max,
+corr,corr,\| wps,| valid |,0,max,
+loss,loss,\| nll,| valid |,1,min,
 #ppl1,ppl,\| wps,| valid1 |,1,min,
 #ppl2,ppl,\| wps,| valid2 |,1,min,
 #ppl3,ppl,\| wps,| valid3 |,1,min,
 #ppl4,ppl,\| wps,| valid4 |,1,min,
+#trainppl,ppl=,", wps",,1,last,
 #rdmppl,ppl,\| wps,rdmvalid,1,idx,ppl
 #worstppl,ppl,\| wps,worstvalid,1,idx,ppl
 #score0,score 0:,,,0,early_stop,ppl
@@ -31,6 +36,7 @@ wps,wps=,", ups",,0,mean,
 steps,"num_updates=",", lr",,0,last,
 params,"trained:","\)",,0,last,
 runtime,", wall=",,,0,last,
+steps,\| num_updates,\|,| valid |,0,last,
 #ppl1k,ppl,\| wps,| valid |,1,stop,steps,2000
 #ppl2k,ppl,\| wps,| valid |,1,stop,steps,3000
 #ppl3k,ppl,\| wps,| valid |,1,stop,steps,4000
@@ -42,6 +48,7 @@ runtime,", wall=",,,0,last,
 #ppl40k,ppl,\| wps,| valid |,1,stop,steps,41000
 #ppl50k,ppl,\| wps,| valid |,1,stop,steps,51000
 #runtime,training in,seconds,,1,last,,
+runtime,training in,seconds,,1,last,,
 #ppl60k,ppl,\| wps,| valid |,1,stop,steps,61000
 #ppl70k,ppl,\| wps,| valid |,1,stop,steps,71000
 #ppl80k,ppl,\| wps,| valid |,1,stop,steps,81000

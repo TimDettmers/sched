@@ -21,9 +21,7 @@ args = parser.parse_args()
 
 
 gpus = 1
-cmd = 'fairseq-train --restore-file models/roberta.large/model.pt --max-positions 512  --max-tokens 4400 --task sentence_prediction --reset-optimizer --reset-dataloader --reset-meters --required-batch-size-multiple 1 --init-token 0 --separator-token 2 --arch roberta_large --criterion sentence_prediction  --dropout 0.1 --attention-dropout 0.1 --weight-decay 0.1 --optimizer adam --adam-betas "(0.9, 0.98)" --adam-eps 1e-06 --clip-norm 0.0 --lr-scheduler polynomial_decay --fp16 --fp16-init-scale 4 --threshold-loss-scale 1 --fp16-scale-window 128 --max-epoch 10 --find-unused-parameters --log-format simple --log-interval 25  --no-save --fp16-no-flatten-grads'
-
-#cmd = 'fairseq-train --restore-file models/roberta.large/model.pt --max-positions 512  --max-tokens 4400 --task sentence_prediction --reset-optimizer --reset-dataloader --reset-meters --required-batch-size-multiple 1 --init-token 0 --separator-token 2 --arch roberta_large --criterion sentence_prediction  --dropout 0.1 --attention-dropout 0.1 --weight-decay 0.1 --clip-norm 0.0 --lr-scheduler polynomial_decay --fp16 --fp16-init-scale 4 --threshold-loss-scale 1 --fp16-scale-window 128 --max-epoch 10 --find-unused-parameters --log-format simple --log-interval 25  --no-save --fp16-no-flatten-grads'
+cmd = 'fairseq-train --restore-file models/roberta.large/model.pt --max-positions 512  --max-tokens 4400 --task sentence_prediction --reset-optimizer --reset-dataloader --reset-meters --required-batch-size-multiple 1 --init-token 0 --separator-token 2 --arch roberta_large --criterion sentence_prediction  --dropout 0.1 --attention-dropout 0.1 --weight-decay 0.1 --clip-norm 0.0 --lr-scheduler polynomial_decay --fp16 --fp16-init-scale 4 --threshold-loss-scale 1 --fp16-scale-window 128 --max-epoch 10 --find-unused-parameters --log-format simple --log-interval 25  --no-save --fp16-no-flatten-grads'
 
 args2 = {}
 
@@ -34,6 +32,7 @@ args2['validate-interval-updates'] = 1000
 args2['save-interval-updates'] = 1000
 
 name = 'baseline2'
+
 constraint = 'volta32gb'
 
 logfolder = 'adam/glue/{0}'.format(name)
@@ -56,33 +55,32 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 fp16 = True
 args3 = {}
 
-lr_factor = 1.0
-step_factor = 1.0
-warmup_factor = 1.0
-#args2['dummy'] = '"warmup 2x, steps 2x, lr 1.2x"'
+lr_factor = 1.2
+step_factor = 2.0
+warmup_factor = 2.0
+args2['dummy'] = '"warmup 2x, steps 2x, lr 1.2x"'
 key = ('batch-size', 'total-num-update', 'num-classes', 'warmup-updates', 'lr', 'best-checkpoint-metric', 'maximize-best-checkpoint-metric')
 args3[key] = []
-#args3[key].append(('32 MNLI-bin', int(123873*step_factor), 3, int(7432*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
-#args3[key].append(('32 QNLI-bin', int(33112*step_factor), 2, int(1986*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
-#args3[key].append(('32 QQP-bin', int(113272*step_factor), 2, int(28318*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
-#args3[key].append(('16 RTE-bin', int(2036*step_factor), 2, int(122*warmup_factor), 2e-05*lr_factor, 'accuracy', True))
-#args3[key].append(('32 SST-2-bin', int(20935*step_factor), 2, int(1256*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
-#args3[key].append(('16 MRPC-bin', int(2296*step_factor), 2, int(137*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
+args3[key].append(('32 MNLI-bin', int(123873*step_factor), 3, int(7432*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
+args3[key].append(('32 QNLI-bin', int(33112*step_factor), 2, int(1986*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
+args3[key].append(('32 QQP-bin', int(113272*step_factor), 2, int(28318*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
+args3[key].append(('16 RTE-bin', int(2036*step_factor), 2, int(122*warmup_factor), 2e-05*lr_factor, 'accuracy', True))
+args3[key].append(('32 SST-2-bin', int(20935*step_factor), 2, int(1256*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
+args3[key].append(('16 MRPC-bin', int(2296*step_factor), 2, int(137*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
 args3[key].append(('16 CoLA-bin', int(5336*step_factor), 2, int(320*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
-#args3[key].append(('16 STS-B-bin --regression-target', int(3598*step_factor), 1, int(214*warmup_factor), 2e-05*lr_factor, 'loss', False))
+args3[key].append(('16 STS-B-bin --regression-target', int(3598*step_factor), 1, int(214*warmup_factor), 2e-05*lr_factor, 'loss', False))
 #args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(True, 32, False, 'quantile'), (False, 32, True, 'quantile'), (False, 8, True, 'quantile'), (False, 8, True, 'dynamic_tree')]
 #args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(True, 32, False, 'quantile'), (True, 32, True, 'quantile')]
-args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(False, 8, True, 'quantile'), (False, 8, True, 'dynamic_tree')]
-args2['adam8bits-wdecay'] = 0.1
+args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(False, 8, True, 'quantile')]
 args3['adam8bits-offset'] = [1/512]
-args3['prob-quant'] = [False]
+args3['prob-quant'] = [True]
 #args3['adam-betas'] = ["'(0.9, 0.995)'", "'(0.9, 0.99)'", "'(0.9, 0.98)'"]
-#args3['adam-betas'] = ["'(0.9, 0.98)'"]
-#args3['adam-eps'] = [1e-6]
+args3['adam-betas'] = ["'(0.9, 0.98)'"]
+args3['adam-eps'] = [1e-6]
 args3['adam8bits-qfreq'] = [1]
 #args3['adam8bits-method'] = ['quantile', 'dynamic_tree']
 args3['percentile-clipping'] = [100]
-args3['dist-scale'] = [1.0]
+args3['dist-scale'] = [1.1]
 #args3['use-emb-norm'] = [True]
 #args3[('memory-efficient-fp16', 'adam-bits')] = [(True, 8)]
 #args3['clip-norm'] = [0.4, 0.8]

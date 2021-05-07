@@ -27,6 +27,8 @@ cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train data/wmt16_en_de_
 args2 = {}
 
 name = 'inf_grid4'
+
+name = 'grid2'
 constraint = 'volta32gb'
 
 logfolder = 'adam/wmt16_en_de/{0}'.format(name)
@@ -39,8 +41,8 @@ seed_offset = 0
 time_hours = 12
 time_minutes = 0
 
-#partition = 'learnfair'
-partition = 'dev'
+
+partition = 'learnfair'
 change_dir = 'fairseq_private/'
 repo = 'fairseq_private'
 exclude = ''
@@ -157,22 +159,29 @@ for seed in range(num_seeds):
                 job_cmd += ' {0}' .format(val)
             #job_cmd += ' --checkpoint /checkpoint/timdettmers/{1}/{0}/model.pt'.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
             if not fp16: job_cmd = job_cmd.replace('--fp16 ', ' ')
+            if any([k in job_cmd for k in args5.keys()]):
+                for substr, pdict in args5.items():
+                    if substr in job_cmd:
+                        for key, values in pdict.items():
+                            for v in values:
+                                job_cmd5 = job_cmd + ' --{0} {1}'.format(key, v)
+                                job_cmd5 = job_cmd5 + ' --seed {0}'.format(seed)
+                                checkpoint_dir = '/checkpoint/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd5).encode('utf-8')).hexdigest(), ckp_name)
+                                save_dir = ' --save-dir {0}'.format(checkpoint_dir)
+                                job_cmd5 = job_cmd5 + save_dir
+                                cmds = [job_cmd5]
+                                if rdm.rand(1) <= args.p:
+                                    jobs.append(job_cmd5)
+                                    s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
             else:
                 job_cmd = job_cmd + ' --seed {0}'.format(seed)
                 checkpoint_dir = '/checkpoint/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
-                save_dir = ' --save-dir {0} '.format(checkpoint_dir.strip())
-
+                save_dir = ' --save-dir {0}'.format(checkpoint_dir)
                 job_cmd = job_cmd + save_dir
                 cmds = [job_cmd]
-                for c in extra_cmds:
-                    cmds.append(c.format(checkpoint_dir.strip()))
                 if rdm.rand(1) <= args.p:
                     jobs.append(job_cmd)
-                    for c in cmds[1:]:
-                        print(c)
-                    #s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
-                    #s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
-                    s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=1)
+                    s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
 
 if args.dry:
     for i, job in enumerate(jobs):
