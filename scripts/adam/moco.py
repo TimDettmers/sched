@@ -47,8 +47,11 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 
 fp16 = False
 args3 = {}
-#args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(32, 100, 'quantile'), (8, 100, 'quantile'), (8, 5, 'quantile'), (8, 100, 'dynamic_tree'), (8, 5, 'dynamic_tree')]
-args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(8, 100, 'quantile'), (8, 100, 'dynamic_tree'), (32, 100, 'quantile')]
+args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(32, 100, 'quantile'), (8, 100, 'quantile'), (8, 100, 'dynamic_tree')]
+#args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(32, 100, 'quantile')]
+#args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(8, 100, 'quantile'), (8, 100, 'dynamic_tree'), (32, 100, 'quantile')]
+#args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(8, 100, 'quantile')]
+#args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(8, 100, 'dynamic_tree')]
 
 
 
@@ -123,7 +126,8 @@ for seed in range(num_seeds):
             job_cmd = job_cmd + save_dir
             job_cmd2 = job_cmd2 + save_dir2 + pretrained
             #cmds = [job_cmd, job_cmd2]
-            cmds = [job_cmd]
+            #cmds = [job_cmd]
+            cmds = [job_cmd, job_cmd2]
             if rdm.rand(1) <= args.p:
                 jobs.append(job_cmd)
                 s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)

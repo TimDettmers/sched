@@ -25,6 +25,7 @@ parser.add_argument('--tick-rotation', type=int, default=0, help='By how much to
 parser.add_argument('--bottom', type=int, default=None, help='Filter out all the scores except the botton n entries.')
 parser.add_argument('--top', type=int, default=None, help='Filter out all the scores except the top n entries.')
 parser.add_argument('--scale', type=float, default=None, help='Multiply metric by this value.')
+parser.add_argument('--ylim', nargs='+', type=float, default=None, help='Sets the [min, max] range of the metric value (two space separated values).')
 
 args = parser.parse_args()
 
@@ -95,6 +96,9 @@ else:
         ax = sns.relplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full')
         plt.subplots_adjust(top=0.9)
         ax.fig.suptitle(args.title, fontsize=18)
+
+if args.ylim is not None:
+    plt.ylim(*args.ylim)
 
 plt.ylabel(args.namey, fontsize=13)
 plt.savefig(args.out, bbox_inches='tight')

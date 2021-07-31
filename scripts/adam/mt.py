@@ -21,14 +21,13 @@ args = parser.parse_args()
 
 gpus = 32
 
-cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train data/wmt16_en_de_bpe32k/wmt16_en_de_bpe32k/ --arch transformer_vaswani_wmt_en_de_big --share-all-embeddings --clip-norm 0.0 --dropout 0.3 --weight-decay 0.0 --criterion label_smoothed_cross_entropy --label-smoothing 0.1 --fp16  --fp16-no-flatten-grads --log-format simple --log-interval 50 --distributed-port 12597 --distributed-world-size {0} --keep-best-checkpoints 2 --keep-last-epochs 20 --keep-interval-updates 1 --ddp-backend=no_c10d'.format(gpus)
+cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train /private/home/timdettmers/data/wmt16_en_de_bpe32k/ --arch transformer_vaswani_wmt_en_de_big --share-all-embeddings --clip-norm 0.0 --dropout 0.3 --weight-decay 0.0 --criterion label_smoothed_cross_entropy --label-smoothing 0.1 --fp16  --fp16-no-flatten-grads --log-format simple --log-interval 50 --distributed-port 12597 --distributed-world-size {0} --keep-best-checkpoints 2 --keep-last-epochs 20 --keep-interval-updates 1 --ddp-backend=no_c10d'.format(gpus)
 
 
 args2 = {}
 
-name = 'inf_grid4'
+name = 'blockwise3'
 
-name = 'grid2'
 constraint = 'volta32gb'
 
 logfolder = 'adam/wmt16_en_de/{0}'.format(name)
@@ -42,7 +41,8 @@ time_hours = 12
 time_minutes = 0
 
 
-partition = 'learnfair'
+partition = 'learnfair,learnlab'
+#partition = 'scavenge'
 change_dir = 'fairseq_private/'
 repo = 'fairseq_private'
 exclude = ''
@@ -76,19 +76,27 @@ args3['adam-betas'] = ["'(0.9, 0.98)'"]
 
 args3[('max-update', 'warmup-updates')] = [(24000, 4000)]
 args3[('max-tokens', 'update-freq')] = [(3584, 128//gpus)]
-args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(True, 32, False, 'quantile'), (False, 32, True, 'quantile')]
+#args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(True, 32, False, 'quantile'), (False, 32, True, 'quantile')]
 #args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(False, 32, True, 'quantile')]
 #args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(False, 8, True, 'quantile'), (False, 8, True, 'dynamic_tree')]
 #args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(False, 8, True, 'dynamic_tree')]
 #args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(False, 8, True, 'quantile')]
-args3['adam8bits-offset'] = [1/512]
-args3['prob-quant'] = [False]
-args3['adam8bits-qfreq'] = [1]
-args3['dist-scale'] = [1.0]
-
-args3['percentile-clipping'] = [100]
-args3['use-emb-norm'] = [False]
+#args3['adam8bits-offset'] = [1/512]
+#args3['prob-quant'] = [False]
+#args3['adam8bits-qfreq'] = [1]
+#args3['dist-scale'] = [1.0]
+#
+#args3['percentile-clipping'] = [100]
+#args3['use-emb-norm'] = [False]
 #log_id = '88ce0ff01b5b72a142a329cb5ffe7275'
+
+args2['no-scale-embedding'] = ''
+#args2['use-bnb'] = ''
+args2['stable-emb'] = ''
+
+args3[('clip-norm', 'percentile-clipping')] = [(0.6, 100)]
+
+#args3[('optim-bits', 'use-blockwise')] = [(8, True), (8, False)]
 
 extra_cmds = []
 extra_cmds.append('python scripts/average_checkpoints.py --inputs {0} --num-epoch-checkpoints 20 --output {0}/checkpoint.avg10.pt')

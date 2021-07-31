@@ -182,7 +182,7 @@ class HyakScheduler(object):
         if self.verbose:
             print('#SBATCH --time={0:02d}:{1:02d}:00'.format(time_hours, time_minutes))
 
-    def run_jobs(self, as_array=True, sleep_delay_seconds=0, single_process=False, log_id=None, skip_cmds=0):
+    def run_jobs(self, as_array=True, sleep_delay_seconds=0, single_process=False, log_id=None, skip_cmds=0, comment=None, begin=None):
 
         array_preamble = []
 
@@ -224,10 +224,16 @@ class HyakScheduler(object):
             else:
                 lines.append('#SBATCH --gpus-per-node={0}'.format(gpus))
             lines.append('#SBATCH --mem={0}G'.format(mem))
+            lines.append('#SBATCH --requeue')
             if len(constraint) > 0:
                 lines.append('#SBATCH --constraint={0}'.format(constraint))
             if exclude != '':
                 lines.append('#SBATCH --exclude={0}'.format(exclude))
+            if comment is not None:
+                lines.append('#SBATCH --comment={0}'.format(comment))
+            if begin is not None:
+                lines.append('#SBATCH --begin={0}'.format(begin))
+
             lines.append('#')
             lines.append('#SBATCH --open-mode=append')
             lines.append('#SBATCH --chdir={0}'.format(join(self.config['GIT_HOME'], work_dir)))

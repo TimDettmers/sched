@@ -1,0 +1,15 @@
+name,start_regex,end_regex,contains,smaller_is_better,agg,early_stopping_metric_name
+ppl,ppl,\| wps,valid,1,min,
+#accuracy,accuracy,\| wps,| valid |,0,max,
+#trainppl,ppl=,", wps",,1,min,
+#loss,loss,\| nll,| valid |,1,min,
+finished,"done training in",seconds,,0,last
+wps,wps=,", ups",,0,mean,
+#trainsteps,"num_updates=",", lr",,0,last,
+#params,"trained:","\)",,0,last,
+#runtime,", wall=",,,0,last,
+steps,\| num_updates,\|,| valid |,0,last,
+#steps,num_updates=,", lr",,0,last,
+#ppl1k,ppl,\| wps,| valid |,1,stop,steps,2000
+#ppl5k,ppl,\| wps,| valid |,1,stop,steps,6000
+#ppl10k,ppl,\| wps,| valid |,1,stop,steps,11000

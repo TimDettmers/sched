@@ -34,6 +34,7 @@ parser.add_argument('--start', type=str, default='', help='String after which th
 parser.add_argument('--end', type=str, default='\n', help='String before which the test score appears.')
 parser.add_argument('--groupby', nargs='+', type=str, default='', help='Argument(s) which should be grouped by. Multiple arguments separated with space.')
 parser.add_argument('--filter', nargs='+', type=str, default='', help='Argument(s) which should be kept by value (arg=value). Multiple arguments separated with a space.')
+parser.add_argument('--hard-filter', action='store_true', default=False, help='Filters all log files which do not satisfy the filter or do not have the parsed metric (NaN)')
 parser.add_argument('--all', action='store_true', help='Prints all individual scores.')
 parser.add_argument('--csv', type=str, default=None, help='Prints all argparse arguments with differences.')
 parser.add_argument('--smaller-is-better', action='store_true', help='Whether a lower metric is better.')
@@ -88,7 +89,8 @@ for folder in folders:
         config = {'METRICS' : {}, 'NAME' : log_name}
         for metric in metrics:
             config['METRICS'][metric['name']] = []
-        if os.stat(log_name.replace('.log','.err')).st_size > 0: config['has_error'] = True
+        if not os.path.exists(log_name.replace('.log','.err')): config['has_error'] = False
+        elif os.stat(log_name.replace('.log','.err')).st_size > 0: config['has_error'] = True
         else: config['has_error'] = False
         with open(log_name, 'r') as f:
             has_config = False
@@ -155,7 +157,7 @@ if args.diff:
     for key, values in key2values.items():
         if len(values) == 1 or len(values) == n: continue
         keyvalues = '{0}: '.format(key)
-        keyvalues += '{' + ','.join(values) + '}'
+        keyvalues += '{' + ','.join(values)[:1000] + '}'
         print(keyvalues)
     sys.exit()
 
@@ -211,9 +213,13 @@ for config in configs:
 filters = {}
 for keyvalue in args.filter:
     key, value = keyvalue.strip().split('=')
-    filters[key] = value
+    if any([c in value for c in ['>', '<']]):
+        filters[key] = "{0}" + value
+    else:
+        filters[key] = "{0}==" + value
 args.filter = filters
 
+print(args.filter)
 # remove all configs with data not in the metric limits [a, b]
 # remove all data that does not conform to the filter
 # also remove all nan values
@@ -234,7 +240,11 @@ while i < len(configs):
     # removal based on not satisfying filter value
     for key, value in cfg.items():
         if key in args.filter:
-            if value != args.filter[key]: remove = True
+            if not eval(args.filter[key].format(value)): remove = True
+
+    if args.hard_filter:
+        for key in args.filter:
+            if key not in cfg: remove = True
 
     if remove:
         configs.pop(i)
@@ -246,6 +256,7 @@ while i < len(configs):
 #if args.lower_is_better: idx = idx[::-1]
 
 all_cols.update([m['name'] for m in metrics])
+all_cols.add('has_error')
 all_cols = list(all_cols)
 pandas_data = []
 for i, config in enumerate(configs):
@@ -262,6 +273,9 @@ df = pd.DataFrame(pandas_data, columns=all_cols)
 for col in args.groupby:
     if col not in all_cols:
         print(f'Column {0} does not exist {col}')
+        all_cols = list(all_cols)
+        all_cols.sort()
+        print(all_cols)
     assert col in all_cols
 
 if df.size == 0:

@@ -1,0 +1,13 @@
+/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /bin/bash)
+srun: /usr/local/lib/slurm/switch_generic.so: Incompatible Slurm plugin version (20.02.5)
+srun: error: Couldn't load specified plugin name for switch/generic: Incompatible plugin version
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+slurmstepd: error: *** STEP 37243683.0 ON learnfair0346 CANCELLED AT 2021-03-13T05:28:19 DUE TO TIME LIMIT ***
+slurmstepd: error: *** JOB 37243683 ON learnfair0346 CANCELLED AT 2021-03-13T05:28:19 DUE TO TIME LIMIT ***

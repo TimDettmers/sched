@@ -53,7 +53,7 @@ else:
     args2['max-tokens'] = 2048
 
 if args.baseline:
-    name = 'sensitivity_lr1'
+    name = 'linear_stats1'
     constraint = 'volta32gb'
 else:
     name = 'moe30'
@@ -64,7 +64,7 @@ ckp_name = logfolder
 #time_hours = 24*2
 cores_per_job = 5
 mem = 48*(8 if gpus > 8 else gpus)
-num_seeds = 2
+num_seeds = 1
 seed_offset = 0
 time_hours = 12
 time_minutes = 0
@@ -74,7 +74,7 @@ time_minutes = 0
 #account = 'ark'
 #partition = 'scavenge'
 #partition = 'scavenge,learnfair'
-partition = 'learnfair'
+partition = 'learnlab,learnfair,scavenge'
 #partition = 'uninterrupted'
 #partition = 'dev'
 change_dir = 'fairseq_private/'
@@ -191,13 +191,14 @@ args3['weight-decay'] = [0.00]
 #args2['lr'] = 1e-03
 key = ('lr', 'max-lr', 'min-lr', 'warmup-init-lr')
 args3[key] = []
+for params in [1e6]:
 #for params in [1e4, 1e5, 1e6]:
-#for params in [1e1,  1e3, 1e2, 5e3]:
-for params in [1e4, 1e5, 1e6, 1e7, 1e8]:
+#for params in [1e1,  1e3, 1e2, 5e3, 1e4, 1e5, 1e6, 1e7, 1e8]:
+#for params in [ 1e2, 5e3, 1e4, 1e5, 1e6, 1e7, 1e8]:
+#for params in [1e7]:
     lr = 0.003239 + (-0.0001395*math.log(params))
     args3[key].append((lr, lr+1e-8, lr*0.1, lr*0.1 + 1e-8))
     #args3[key].append((lr, lr+1e-8, lr*0.1, lr*1.0 + 1e-8))
-
 print(args3[key])
 args2['lr-scheduler'] = 'cosine'
 
@@ -207,26 +208,37 @@ args2['lr-scheduler'] = 'cosine'
 args2['optimizer'] = 'adam'
 args2['fp16-no-flatten-grads'] = ''
 args2['min-loss-scale'] = 1e-10
-args3['fused'] = [False]
 args3['dist-scale'] = [1.00]
+args2['fp16-scale-window'] = 250
 
 #args3[('clip-norm', 'percentile-clipping')] = [(0.0, 2), (0.0, 5)]
-args3['adam8bits-offset'] = [1/512]
+#args3['adam8bits-offset'] = [1/512]
 #args3['emb-max-norm'] = [0.0, 1.0]
 args3['prob-quant'] = [False]
 #args3['adam-betas'] = ["'(0.87, 0.999)'", "'(0.93, 0.999)'", "'(0.9, 0.999)'", "'(0.9, 0.98)'", "'(0.9, 0.99)'"]
-args3['adam-eps'] = [1e-7]
+#args3['adam-betas'] = ["'(0.9, 0.995)'"] # baseline params
+#args3['adam-eps'] = [1e-7] # baseline params
 args3['adam8bits-qfreq'] = [1]#, 5, 10, 25]
 #args3['unorm'] = ['none', 'percentile', 'scale']
 #args3[('adam8bits-method', 'use-emb-norm')] = [('quantile', True), ('dynamic_tree', True), ('linear', True)]
 #args3[('adam8bits-method', 'use-emb-norm')] = [('quantile', True)]
 #args3['adam8bits-method'] = ['quantile', 'dynamic_tree', 'linear']
 #args3['adam8bits-method'] = ['quantile', 'dynamic_tree']
-args3['use-emb-norm'] = [True]
-args3[('memory-efficient-fp16', 'adam-bits', 'adam8bits-method')] = [(True, 8, 'quantile'), (True, 32, 'quantile'), (True, 8, 'dynamic_tree')]
-args3[('clip-norm', 'percentile-clipping')] = [(0.0, 5)]
+#args3['use-emb-norm'] = [True]
+#args3[('clip-norm', 'percentile-clipping')] = [(0.0, 5)]
+#args3[('memory-efficient-fp16', 'adam-bits', 'adam8bits-method')] = [(True, 8, 'quantile'), (True, 8, 'dynamic_tree')]
+#args3[('memory-efficient-fp16', 'adam-bits', 'adam8bits-method', 'fused')] = [(False, 32, '32-bit', True)]
+#args3[('memory-efficient-fp16', 'adam-bits', 'adam8bits-method', 'fused')] = [(True, 8, 'dynamic_tree', False)]
+#args3[('memory-efficient-fp16', 'adam-bits', 'adam8bits-method', 'fused')] = [(True, 8, 'dynamic_tree', False), (True, 8, 'quantile', False), (True, 8, 'dynamic_inverse', False)]
+#args3[('memory-efficient-fp16', 'adam-bits', 'adam8bits-method', 'fused')] = [(True, 8, 'linear', False)]
+#args3['adam-eps'] = [1e-6, 1e-5]
+#args3[('clip-norm', 'percentile-clipping')] = [(0.6, 100)]
 #args3['clip-norm'] = [0.4, 0.8]
 
+#args3['adam-betas'] = ["'(0.90, 0.995)'", "'(0.90, 0.99)'", "'(0.9, 0.99)'"]
+#args3['adam-eps'] = [1e-7, 1e-8, 1e-6] # baseline params
+#args3[('clip-norm', 'percentile-clipping')] = [(0.0, 5), (0.6, 100)]
+#args3['use-emb-norm'] = [True, False]
 print(list(args3.keys()))
 args4 = []
 

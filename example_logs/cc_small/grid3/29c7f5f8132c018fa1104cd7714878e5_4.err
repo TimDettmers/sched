@@ -1,0 +1,11 @@
+/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+slurmstepd: error: *** JOB 37262688 ON learnfair1871 CANCELLED AT 2021-03-13T15:39:38 DUE TO TIME LIMIT ***
+slurmstepd: error: *** STEP 37262688.0 ON learnfair1871 CANCELLED AT 2021-03-13T15:39:38 DUE TO TIME LIMIT ***

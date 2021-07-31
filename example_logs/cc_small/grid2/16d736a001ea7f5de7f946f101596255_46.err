@@ -1,0 +1,13 @@
+/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+/usr/bin/bash: /private/home/timdettmers/anaconda3/lib/libtinfo.so.6: no version information available (required by /usr/bin/bash)
+slurmstepd: error: *** STEP 37242936.0 ON learnfair2321 CANCELLED AT 2021-03-13T01:34:29 ***
+srun: error: learnfair2321: tasks 0-7: Terminated
+srun: launch/slurm: _step_signal: Terminating StepId=37242936.0
+srun: Force Terminated StepId=37242936.0
