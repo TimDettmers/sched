@@ -70,7 +70,8 @@ args2['optimizer'] = 'adam'
 args2['fp16-no-flatten-grads'] = ''
 args2['min-loss-scale'] = 1e-10
 args2['fp16-scale-window'] = 250
-args3[('clip-norm', 'percentile-clipping')] = [(0.6, 100)]
+args2['clip-norm'] = 0.6
+#args3[('clip-norm', 'percentile-clipping')] = [(0.6, 100)]
 
 #args2['memory-efficient-fp16'] = ''
 #args3['ff-block'] = ['8bit']
@@ -78,11 +79,11 @@ args3[('clip-norm', 'percentile-clipping')] = [(0.6, 100)]
 #args3['store-8bit'] = ['8bit']
 #args3['init'] = ['xavier_normal']
 
-args3['ff-block'] = ['dendritic']
-args3['dendrite-type'] = ['second', 'both']
-args3['dim3'] = [32, 16]
-args3['topk'] = [2, 4]
-args3['no-relu'] = [True, False]
+#args3['ff-block'] = ['dendritic']
+#args3['dendrite-type'] = ['second', 'both']
+#args3['dim3'] = [32, 16]
+#args3['topk'] = [2, 4]
+#args3['no-relu'] = [True, False]
 
 
 args3['adam-betas'] = ["'(0.9, 0.995)'"] # baseline params
