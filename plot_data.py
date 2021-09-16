@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(description='Plot script for evaluation data cs
 parser.add_argument('--csv', type=str, default='', help='Prints all argparse arguments with differences.')
 parser.add_argument('--plotx', type=str, default='', help='The column name to plot on x')
 parser.add_argument('--ploty', type=str, default='Mean', help='The column name to plot on y. Default: Mean.')
-parser.add_argument('--filter', type=str, default='', help='Argument(s) which should be kept by value (arg=value). Multiple arguments separated with a comma.')
+parser.add_argument('--filter', type=str, nargs='+', default='', help='Argument(s) which should be kept by value (arg=value). Multiple arguments separated with a comma.')
 parser.add_argument('--out', '-o', type=str, default='', help='The output path')
 parser.add_argument('--print', action='store_true', help='Prints the dataframe before it is being plotted.')
 parser.add_argument('--category', type=str, default='', help='Plot all different values for a category into one plot.')
@@ -26,6 +26,7 @@ parser.add_argument('--bottom', type=int, default=None, help='Filter out all the
 parser.add_argument('--top', type=int, default=None, help='Filter out all the scores except the top n entries.')
 parser.add_argument('--scale', type=float, default=None, help='Multiply metric by this value.')
 parser.add_argument('--ylim', nargs='+', type=float, default=None, help='Sets the [min, max] range of the metric value (two space separated values).')
+parser.add_argument('--rename', type=str, nargs='+', default='', help='Argument(s) which should be kept by value (arg=value). Multiple arguments separated with a comma.')
 
 args = parser.parse_args()
 
@@ -39,12 +40,21 @@ if not os.path.exists(os.path.dirname(args.out)):
     os.makedirs(os.path.dirname(args.out))
 
 df = pd.read_csv(args.csv, sep=';')
+df = df.fillna(False)
 
-filter_keys = [] if args.filter == '' else args.filter.split(',')
+rename_keys = [] if args.rename == '' else args.rename
+for r in rename_keys:
+    k, v = r.split('=')
+    k = k.strip()
+    v = v.strip()
+    df = df.rename(columns={k:v})
+
+filter_keys = [] if args.filter == '' else args.filter
 for f in filter_keys:
     k,v = f.split('=')
     k = k.strip()
     v = v.strip()
+    #print(k, v, df[k].astype(str))
     df = df[df[k].astype(str) == v]
 
 if args.bottom is not None or args.top is not None:
@@ -89,13 +99,10 @@ else:
         ax.fig.suptitle(args.title, fontsize=18)
         ax.set_xticklabels(rotation=args.tick_rotation)
     else:
-        print(df)
-        #sns.lineplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full', ci=95.0 if args.ci else None, err_style='bars')
-        #df[args.plotx] = df[args.plotx]/df[args.plotx].max()
-        #print(df[args.plotx])
         ax = sns.relplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full')
         plt.subplots_adjust(top=0.9)
         ax.fig.suptitle(args.title, fontsize=18)
+        ax.set_xticklabels(rotation=args.tick_rotation)
 
 if args.ylim is not None:
     plt.ylim(*args.ylim)

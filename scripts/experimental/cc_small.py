@@ -19,12 +19,12 @@ parser.add_argument('--p', type=float, default=1.0, help='Probability with which
 args = parser.parse_args()
 
 
-gpus = 32
+gpus = 8
 cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 1 --distributed-port 12597 --distributed-world-size {0} --valid-subset valid'.format(gpus)
 
 args2 = {}
 
-name = 'dendrite_matrix2'
+name = 'bottleneck_pre1'
 constraint = 'volta'
 
 logfolder = 'experimental/cc_small/{0}'.format(name)
@@ -32,8 +32,8 @@ ckp_name = logfolder
 cores_per_job = 10
 mem = 48*(8 if gpus > 8 else gpus)
 num_seeds = 1
-seed_offset = 0
-time_hours = 24
+seed_offset = 1
+time_hours = 16
 time_minutes = 0
 
 begin = None
@@ -66,26 +66,20 @@ args2['weight-decay'] = 0.00
 args2['validate-interval-updates'] = 1000
 args2['save-interval-updates'] = 1000
 args2['lr-scheduler'] = 'cosine'
-args2['optimizer'] = 'adam'
 args2['fp16-no-flatten-grads'] = ''
 args2['min-loss-scale'] = 1e-10
 args2['fp16-scale-window'] = 250
 args2['clip-norm'] = 0.6
-#args3[('clip-norm', 'percentile-clipping')] = [(0.6, 100)]
 
-#args2['memory-efficient-fp16'] = ''
-#args3['ff-block'] = ['8bit']
-#args3['use-8bit-training'] = ['off', 'full']
-#args3['store-8bit'] = ['8bit']
-#args3['init'] = ['xavier_normal']
+args3[('ff-block','maxout', 'scale-factor')] = [('bottleneck', 2, 1)]
+#args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 1))
+args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 4, 1))
+args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 8, 1))
+#args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 2, 2))
+#args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 2))
+#args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 4))
 
-#args3['ff-block'] = ['dendritic']
-#args3['dendrite-type'] = ['second', 'both']
-#args3['dim3'] = [32, 16]
-#args3['topk'] = [2, 4]
-#args3['no-relu'] = [True, False]
-
-
+args2['optimizer'] = 'adam'
 args3['adam-betas'] = ["'(0.9, 0.995)'"] # baseline params
 args3['adam-eps'] = [1e-7] # baseline params
 args3['decoder-layers'] = [10]

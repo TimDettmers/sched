@@ -3,20 +3,20 @@ name,start_regex,end_regex,contains,smaller_is_better,agg,reference_metric_name,
 #accuracy,"Acc@1 mean:","\)\sAcc",5000,0,max
 #epoch,"Epoch: \[","\]\[",5000,0,max
 #epochs,"Epoch:","lr :",,0,last,
-#accuracy,accuracy,\| wps,| valid |,0,max,
-lastppl,ppl,\| wps,| valid |,1,last,
-ppl,ppl,\| wps,| valid |,1,min,
+loss,loss,\| nll,| valid |,1,min,
+accuracy,accuracy,"\| corr ",| valid |,0,max,
 gbfree,gb_free=, wall,,1,min
+#lastppl,ppl,\| wps,| valid |,1,last,
+#ppl,ppl,\| wps,| valid |,1,min,
 #trainppl,ppl=,", wps",,1,min,
 #BLEU4,"BLEU4 = ",", 6",,0,max,
 #BLEU,"0 = "," 5",,0,max,
 #accuracy,"\* Acc@1 ","Acc@5",,0,max,
 #accuracy,"Acc@5\s\d\.\d\s\(","\)$","5000/5004",0,max,
 #corr,corr,\| wps,| valid |,0,max,
-#mcorr,mcorr,\| wps,| valid |,0,max,
+mcorr,mcorr,\| wps,| valid |,0,max,
 #accuracy,accuracy,\| mcorr,| valid |,0,max,
 #accuracy,accuracy,\| wps,| valid |,0,max,
-#loss,loss,\| nll,| valid |,1,min,
 #ppl,ppl,\| wps,| valid |,1,min,
 #corr,corr,\| wps,| valid |,0,max,
 #loss,loss,\| nll,| valid |,1,min,
@@ -40,35 +40,11 @@ finished,"done training in",seconds,,0,last
 wps,wps=,", ups",,0,mean,
 #s1,Sparsity fc1:,,,0,last,
 #s2,Sparsity fc2:,,,0,last,
-s,Sparsity:,", expected",,0,last,
 #steps,"num_updates=",", lr",,0,last,
-params,"trained:","\)",,0,last,
+#params,"trained:","\)",,0,last,
 #runtime,", wall=",,,0,last,
 steps,\| num_updates,\|,| valid |,0,last,
 #steps,num_updates=,", lr",,0,last,
-#ppl1k,ppl,\| wps,| valid |,1,stop,steps,2000
-#ppl2k,ppl,\| wps,| valid |,1,stop,steps,3000
-#ppl3k,ppl,\| wps,| valid |,1,stop,steps,4000
-#ppl4k,ppl,\| wps,| valid |,1,stop,steps,5000
-#ppl5k,ppl,\| wps,| valid |,1,stop,steps,6000
-#ppl6k,ppl,\| wps,| valid |,1,stop,steps,7000
-#ppl7k,ppl,\| wps,| valid |,1,stop,steps,8000
-#ppl8k,ppl,\| wps,| valid |,1,stop,steps,9000
-#ppl9k,ppl,\| wps,| valid |,1,stop,steps,10000
-#ppl10k,ppl,\| wps,| valid |,1,stop,steps,11000
-#ppl11k,ppl,\| wps,| valid |,1,stop,steps,12000
-#ppl12k,ppl,\| wps,| valid |,1,stop,steps,13000
-#ppl13k,ppl,\| wps,| valid |,1,stop,steps,14000
-#ppl14k,ppl,\| wps,| valid |,1,stop,steps,15000
-#ppl15k,ppl,\| wps,| valid |,1,stop,steps,16000
-#ppl20k,ppl,\| wps,| valid |,1,stop,steps,21000
-#ppl30k,ppl,\| wps,| valid |,1,stop,steps,31000
-#ppl40k,ppl,\| wps,| valid |,1,stop,steps,41000
-#ppl50k,ppl,\| wps,| valid |,1,stop,steps,51000
-#runtime,training in,seconds,,1,last,,
-#runtime,training in,seconds,,1,last,,
-#ppl60k,ppl,\| wps,| valid |,1,stop,steps,61000
-#ppl70k,ppl,\| wps,| valid |,1,stop,steps,71000
 #ppl80k,ppl,\| wps,| valid |,1,stop,steps,81000
 #ppl90k,ppl,\| wps,| valid |,1,stop,steps,91000
 #ppl100k,ppl,\| wps,| valid |,1,stop,steps,101000

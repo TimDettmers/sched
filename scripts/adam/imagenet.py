@@ -24,7 +24,7 @@ gpus = 8
 cmd = 'python ./multiproc.py --nproc_per_node 8 ./launch.py --model resnet50 --precision AMP --mode convergence --platform DGX2V /datasets01/imagenet_full_size/061417/  --epochs 90 --mixup 0.00'
 args2 = {}
 
-name = 'wdecay2'
+name = 'blockwise2'
 constraint = 'volta'
 
 logfolder = 'adam/imagenet_resnet50/{0}'.format(name)
@@ -32,7 +32,7 @@ ckp_name = logfolder
 #time_hours = 24*2
 cores_per_job = 5
 mem = 48*(8 if gpus > 8 else gpus)
-num_seeds = 3
+num_seeds = 1
 seed_offset = 0
 time_hours = 48
 time_minutes = 0
@@ -46,7 +46,8 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 
 fp16 = True
 args3 = {}
-args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(32, 5, 'quantile'), (32, 100, 'quantile')]#, (8, 100, 'quantile'), (8, 100, 'dynamic_tree')]
+#args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(32, 5, 'quantile'), (32, 100, 'quantile')]#, (8, 100, 'quantile'), (8, 100, 'dynamic_tree')]
+args3['adam-bits'] = [8, 32]
 
 
 args4 = []

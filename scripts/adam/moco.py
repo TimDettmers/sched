@@ -25,7 +25,7 @@ cmd = ' python main_moco.py  -a resnet50  --lr 0.03  --batch-size 256  --dist-ur
 cmd2 = 'python main_lincls.py  -a resnet50  --lr 30.0  --batch-size 256  --dist-url "tcp://localhost:10001" --multiprocessing-distributed --world-size 1 --rank 0  /datasets01/imagenet_full_size/061417/'
 args2 = {}
 
-name = 'mocov2_fp32_1'
+name = 'blockwise1'
 constraint = 'volta'
 
 logfolder = 'adam/moco_v2/{0}'.format(name)
@@ -33,12 +33,12 @@ ckp_name = logfolder
 #time_hours = 24*2
 cores_per_job = 5
 mem = 48*(8 if gpus > 8 else gpus)
-num_seeds = 2
+num_seeds = 3
 seed_offset = 0
 time_hours = 72
 time_minutes = 0
 
-partition = 'learnlab,learnfair,scavenge'
+partition = 'prioritylab,learnlab,learnfair'
 change_dir = '/private/home/timdettmers/git/moco/'
 repo = 'moco'
 exclude = ''
@@ -47,11 +47,14 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 
 fp16 = False
 args3 = {}
-args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(32, 100, 'quantile'), (8, 100, 'quantile'), (8, 100, 'dynamic_tree')]
+#args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(32, 100, 'quantile'), (8, 100, 'quantile'), (8, 100, 'dynamic_tree')]
 #args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(32, 100, 'quantile')]
 #args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(8, 100, 'quantile'), (8, 100, 'dynamic_tree'), (32, 100, 'quantile')]
 #args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(8, 100, 'quantile')]
 #args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(8, 100, 'dynamic_tree')]
+#args3[('adam-bits', 'percentile-clipping', 'adam8bits-method')] = [(32, 100, 'quantile'), (8, 100, 'quantile'), (8, 100, 'dynamic_tree')]
+
+args3['adam-bits'] = [8]
 
 
 
@@ -127,9 +130,9 @@ for seed in range(num_seeds):
             job_cmd2 = job_cmd2 + save_dir2 + pretrained
             #cmds = [job_cmd, job_cmd2]
             #cmds = [job_cmd]
-            cmds = [job_cmd, job_cmd2]
+            cmds = [job_cmd2]
             if rdm.rand(1) <= args.p:
-                jobs.append(job_cmd)
+                jobs.append(cmds[0])
                 s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
 
 if args.dry:
@@ -144,5 +147,5 @@ if args.dry:
     print('Run in folder: {0}'.format(change_dir))
 
 if not args.dry:
-    s.run_jobs(single_process=True)#, log_id='2139b6c61747dbd7cc9512638f90ef97')
+    s.run_jobs(single_process=True, comment='"ICLR internal review deadline 2019-09-28"')#, log_id='2139b6c61747dbd7cc9512638f90ef97')
 

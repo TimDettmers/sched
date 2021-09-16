@@ -68,6 +68,7 @@ for l in lines:
     script_id = script + '_{0}'.format(array_id)
 
     if 'array' in script:
+        if not os.path.exists(script): continue
         with open(script) as f:
             lines = f.readlines()
         if array_id >= len(lines): continue

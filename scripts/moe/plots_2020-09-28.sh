@@ -46,9 +46,9 @@
 
 #python plot_data.py --csv ~/plots/csv/moe/scaling/cld/full_grid_cld_1.0_good_specialization.csv --plotx dummy --namey 'Valid Perplexity' --category arch --title "PPL by Compute Budget 100% Data" --categoricalx --swarm --out ~/plots/png/moe/scaling/cld/large_filtered_with_lr_params.png --filter lr=[0.001],decoder_layers=15
 
-python plot_data.py --csv ~/plots/csv/moe/scaling/wt/wt10.csv --plotx dummy --namey 'Valid Perplexity' --category arch --title "PPL by Compute Budget 100% Data" --categoricalx --swarm --out ~/plots/png/moe/scaling/wt/wt10_ppl.png
+#python plot_data.py --csv ~/plots/csv/moe/scaling/wt/wt10.csv --plotx dummy --namey 'Valid Perplexity' --category arch --title "PPL by Compute Budget 100% Data" --categoricalx --swarm --out ~/plots/png/moe/scaling/wt/wt10_ppl.png
 
-python plot_data.py --csv ~/plots/csv/moe/scaling/wt/wt10.csv --plotx dummy --namey 'Valid Perplexity' --category arch --title "PPL by Compute Budget 100% Data" --categoricalx --swarm --out ~/plots/png/moe/scaling/wt/wt10_ppl_filtered.png --bottom 20
+#python plot_data.py --csv ~/plots/csv/moe/scaling/wt/wt10.csv --plotx dummy --namey 'Valid Perplexity' --category arch --title "PPL by Compute Budget 100% Data" --categoricalx --swarm --out ~/plots/png/moe/scaling/wt/wt10_ppl_filtered.png --bottom 20
 
 
-python plot_data.py --csv ~/plots/csv/moe/scaling/wt/score_wt10.csv --plotx iloss_weight --namey 'Specialization score' --category lr --title "Specialization score by Loss Weight/LR" --categoricalx --swarm --out ~/plots/png/moe/scaling/wt/score_wt10.png
+python plot_data.py --csv ~/plots/csv/test/decoder.csv --plotx lr --namey 'PPL' --category decoder_layers --title "LR by decoder layers" --categoricalx --swarm --out ~/plots/png/moe/scaling/wt/score_wt10.png

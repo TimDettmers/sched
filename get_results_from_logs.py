@@ -10,7 +10,7 @@ import copy
 from os.path import join
 import pandas as pd
 import operator
-pd.set_option('display.max_colwidth', -1)
+pd.set_option('display.max_colwidth', None)
 
 # output possible parameters configurations
 # multiple metric via metric file
@@ -240,6 +240,7 @@ while i < len(configs):
     # removal based on not satisfying filter value
     for key, value in cfg.items():
         if key in args.filter:
+            print('a'*90)
             if not eval(args.filter[key].format(value)): remove = True
 
     if args.hard_filter:

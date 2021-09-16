@@ -19,30 +19,34 @@ parser.add_argument('--p', type=float, default=1.0, help='Probability with which
 args = parser.parse_args()
 
 
-gpus = 32
-
-cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train /private/home/timdettmers/data/wmt16_en_de_bpe32k/ --arch transformer_vaswani_wmt_en_de_big --share-all-embeddings --clip-norm 0.0 --dropout 0.3 --weight-decay 0.0 --criterion label_smoothed_cross_entropy --label-smoothing 0.1 --fp16  --fp16-no-flatten-grads --log-format simple --log-interval 50 --distributed-port 12597 --distributed-world-size {0} --keep-best-checkpoints 2 --keep-last-epochs 20 --keep-interval-updates 1 --ddp-backend=no_c10d'.format(gpus)
-
+gpus = 8
+cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 1 --distributed-port 12597 --distributed-world-size {0} --valid-subset valid'.format(gpus)
 
 args2 = {}
 
-name = 'blockwise_vs_adafactor'
+name = 'analysis3'
+constraint = 'volta'
 
-constraint = 'volta32gb'
-
-logfolder = 'adam/wmt16_en_de/{0}'.format(name)
+logfolder = 'block_wise/cc_small/{0}'.format(name)
 ckp_name = logfolder
-#time_hours = 24*2
-cores_per_job = 5
-mem = 48*(8 if gpus > 8 else gpus)
+cores_per_job = 4
+mem = 24*(8 if gpus > 8 else gpus)
 num_seeds = 1
-seed_offset = 3
-time_hours = 12
+seed_offset = 0
+time_hours = 6
 time_minutes = 0
 
+#partition = 'learnlab,learnfair,scavenge'
+#partition = 'learnlab,learnfair'
+partition = 'devlab,prioritylab'
 
-partition = 'learnfair,learnlab'
+begin = None
+#begin = 'now+8hours'
+#begin = 'now+16hours'
+#begin = '19:00'
+#begin = '03:00'
 #partition = 'scavenge'
+
 change_dir = 'fairseq_private/'
 repo = 'fairseq_private'
 exclude = ''
@@ -52,71 +56,49 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 fp16 = True
 args3 = {}
 
-#key = ('lr', 'max-lr', 'min-lr', 'warmup-init-lr')
-#args2['lr-scheduler'] = 'cosine'
-#args3[key] = []
-#for lr in [0.00075, 0.0005]:
-#    args3[key].append((lr, lr+1e-8, lr*0.1, lr*0.1 + 1e-8))
+key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'decoder-input-dim', 'decoder-output-dim')
+args3[key] = []
+for model_dim in [1024]:
+    heads = 8*(model_dim//512)
+    for ff_dim in [8192]:
+        args3[key].append((model_dim, ff_dim, heads, model_dim, model_dim))
 
-args3['lr'] = [0.00075]
-##args3['lr'] = [0.001]
-args2['warmup-init-lr'] = 1e-07
-args2['lr-scheduler'] = 'inverse_sqrt'
+args2['arch'] = 'transformer_lm'
+args2['weight-decay'] = 0.00
+args2['validate-interval-updates'] = 1000
+args2['save-interval-updates'] = 1000
+args2['lr-scheduler'] = 'cosine'
+args2['optimizer'] = 'adam'
+args2['fp16-no-flatten-grads'] = ''
+args2['min-loss-scale'] = 1e-10
 args2['fp16-scale-window'] = 250
 
-# adam
-#args2['optimizer'] = 'adam'
-#args3['adam-betas'] = ["'(0.9, 0.98)'"]
+args2['use-bnb'] = ''
+args2['optim-bits'] = 8
+args3['bnb-analysis'] = ['linear', 'dynamic', 'dynamic-blockwise']
 
-# adafactor
-args2['optimizer'] = 'adafactor'
-args2['beta1'] = 0.9
-args2['decay-rate'] = 0.98
-
-
-args3[('max-update', 'warmup-updates')] = [(24000, 4000)]
-args3[('max-tokens', 'update-freq')] = [(3584, 128//gpus)]
-#args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(True, 32, False, 'quantile'), (False, 32, True, 'quantile')]
-#args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(False, 32, True, 'quantile')]
-#args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(False, 8, True, 'quantile'), (False, 8, True, 'dynamic_tree')]
-#args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(False, 8, True, 'dynamic_tree')]
-#args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(False, 8, True, 'quantile')]
-#args3['adam8bits-offset'] = [1/512]
-#args3['prob-quant'] = [False]
-#args3['adam8bits-qfreq'] = [1]
-#args3['dist-scale'] = [1.0]
-#
-#args3['percentile-clipping'] = [100]
-#args3['use-emb-norm'] = [False]
-#log_id = '88ce0ff01b5b72a142a329cb5ffe7275'
-
-#args2['no-scale-embedding'] = ''
-#args2['stable-emb'] = ''
-#args3[('stable-emb', 'no-scale-embedding', 'use-bnb', 'optim-bits')] = [(True, True, True, 8), (False, False, False, 32)]
-
-args3[('clip-norm')] = [(0.6)]
-
-#args3[('optim-bits', 'use-blockwise')] = [(8, True), (8, False)]
-
-extra_cmds = []
-extra_cmds.append('python scripts/average_checkpoints.py --inputs {0} --num-epoch-checkpoints 5 --output {0}/checkpoint.avg10b.pt')
-extra_cmds.append('rm {0}/gen*')
-extra_cmds.append('fairseq-generate ~/data/wmt16_en_de_bpe32k/ --path {0}/checkpoint.avg10b.pt --beam 4 --lenpen 0.6 --remove-bpe > {0}/gen10b.out')
-extra_cmds.append('bash scripts/sacrebleu.sh wmt14/full en de {0}/gen10b.out')
-extra_cmds.append('bash scripts/compound_split_bleu.sh {0}/gen10b.out')
-
-blockwise = ['/checkpoint/timdettmers/adam/wmt16_en_de/blockwise_vs_adafactor/4db316c9e499936f4d30762ea962ce2d',
-      ' /checkpoint/timdettmers/adam/wmt16_en_de/blockwise_vs_adafactor/3bc06fecfc416084d040ba90192b8911', ' /checkpoint/timdettmers/adam/wmt16_en_de/blockwise_vs_adafactor/8f481737785310cc2c4c293044ae5248']
-adafactor = ['/checkpoint/timdettmers/adam/wmt16_en_de/blockwise_vs_adafactor/d85280c5be946063fe6ce7d9b2982e8b', '/checkpoint/timdettmers/adam/wmt16_en_de/blockwise_vs_adafactor/0cf2c3e0bae987cdf47d1ff1355c0f8d', '/checkpoint/timdettmers/adam/wmt16_en_de/blockwise_vs_adafactor/c11ca192df29edb21ce51a0e2168cb55']
-baseline = ['/checkpoint/timdettmers/adam/wmt16_en_de/blockwise_vs_adafactor/e6051b9cfa9cbf5d12760b9acd48b8f5', ' /checkpoint/timdettmers/adam/wmt16_en_de/blockwise_vs_adafactor/dc5e671615c32d24ea7fb7fdd25546ba', '/checkpoint/timdettmers/adam/wmt16_en_de/blockwise_vs_adafactor/a27d300ab118ef93bbbddd04c653b2c7']
-
-ps = blockwise
-for checkpoint in ps:
-    for cmd in extra_cmds:
-        print(cmd.format(checkpoint))
+args3[('no-scale-embedding', 'stable-emb')] = [(True, True)]
+args3[('clip-norm', 'percentile-clipping')] = [(0.6, 100)]
 
 
 
+args3['adam-betas'] = ["'(0.9, 0.995)'"] # baseline params
+args3['adam-eps'] = [1e-7] # baseline params
+args3['decoder-layers'] = [10]
+args3[('max-tokens', 'update-freq', 'tokens-per-sample')] = []
+args3[('max-tokens', 'update-freq', 'tokens-per-sample')].append((2048, 128//gpus, 512))
+args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0)]
+
+args3[('max-update', 'warmup-updates', '')] = [(16000, 3000, ' /private/home/timdettmers/data/cc_small')]
+
+args3['weight-decay'] = [0.00]
+
+key = ('lr', 'warmup-init-lr')
+args3[key] = []
+for params in [1e5]:
+    lr = 0.003239 + (-0.0001395*math.log(params))
+    #args3[key].append((lr, lr*0.1))
+    args3[key].append((lr, 0.0))
 args4 = []
 
 args5 = {}
@@ -126,7 +108,10 @@ args6 = {}
 rdm = np.random.RandomState(5345)
 
 for key, value in args2.items():
-    cmd = cmd + ' --{0} {1}'.format(key, value)
+    if value == True:
+        cmd = cmd + ' --{0}'.format(key)
+    else:
+        cmd = cmd + ' --{0} {1}'.format(key, value)
 
 args_prod = []
 for key, values in args3.items():
@@ -183,6 +168,7 @@ for seed in range(num_seeds):
                                 checkpoint_dir = '/checkpoint/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd5).encode('utf-8')).hexdigest(), ckp_name)
                                 save_dir = ' --save-dir {0}'.format(checkpoint_dir)
                                 job_cmd5 = job_cmd5 + save_dir
+                                job_cmd5 = job_cmd5 + ' --analysis-dir {0}/analysis/'.format(checkpoint_dir)
                                 cmds = [job_cmd5]
                                 if rdm.rand(1) <= args.p:
                                     jobs.append(job_cmd5)
@@ -192,6 +178,7 @@ for seed in range(num_seeds):
                 checkpoint_dir = '/checkpoint/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
                 save_dir = ' --save-dir {0}'.format(checkpoint_dir)
                 job_cmd = job_cmd + save_dir
+                job_cmd = job_cmd + ' --analysis-dir {0}/analysis/'.format(checkpoint_dir.strip())
                 cmds = [job_cmd]
                 if rdm.rand(1) <= args.p:
                     jobs.append(job_cmd)
@@ -204,11 +191,11 @@ if args.dry:
     print('Total jobs', len(jobs))
     print('Time hours: {0}'.format(time_hours))
     print('GPUs: {0}'.format(gpus))
+    print('begin: {0}'.format(begin))
     print('Jobs will be written to: {0}'.format(join('/private/home/timdettmers/logs/', logfolder)))
     print('Jobs will be run on: {0}'.format(partition))
     print('Run in folder: {0}'.format(change_dir))
 
 if not args.dry:
-    s.run_jobs(skip_cmds=0)
-    #s.run_jobs(skip_cmds=1)
+    s.run_jobs(begin=begin, comment='"ICLR internal review deadline 2021-09-21"')
 

@@ -25,30 +25,28 @@ cmd = 'fairseq-train --restore-file models/roberta.large/model.pt --max-position
 
 args2 = {}
 
-#args2['optimizer'] = 'adafactor'
-#args2['beta1'] = 0.9
-#args2['decay-rate'] = 0.98
-args2['optimizer'] = 'adam'
-args2['validate-interval-updates'] = 1000
-args2['save-interval-updates'] = 1000
 
-name = 'blockwise3'
+#args2['validate-interval-updates'] = 1000
+#args2['save-interval-updates'] = 1000
+
+name = 'blockwise_vs_adafactor2'
 
 constraint = 'volta'
 
-logfolder = '8bit/glue/{0}'.format(name)
+logfolder = '8bit_training/glue/{0}'.format(name)
 ckp_name = logfolder
 #time_hours = 24*2
 cores_per_job = 5
 mem = 48*(8 if gpus > 8 else gpus)
-num_seeds = 5
+num_seeds = 10
 seed_offset = 0
-time_hours = 8
+time_hours = 16
 time_minutes = 0
 
 #partition = 'devlab,learnlab,learnfair'
-partition = 'scavenge'
+#partition = 'scavenge'
 #partition = 'devlab'
+partition = 'learnlab,learnfair'
 change_dir = 'fairseq_private/'
 repo = 'fairseq_private'
 exclude = ''
@@ -58,18 +56,29 @@ s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=parti
 fp16 = True
 args3 = {}
 
+args2['optimizer'] = 'adafactor'
+args2['beta1'] = 0.9
+args2['decay-rate'] = 0.98
+
+#args3['adam-betas'] = ["'(0.9, 0.98)'"]
+#args3['adam-eps'] = [1e-6]
+#args3['use-bnb'] = [True]
+#args3['optim-bits'] = [32, 8]
+#args2['optimizer'] = 'adam'
+
+
 lr_factor = 1.0
 step_factor = 1.0
 warmup_factor = 1.0
 key = ('batch-size', 'total-num-update', 'num-classes', 'warmup-updates', 'lr', 'best-checkpoint-metric', 'maximize-best-checkpoint-metric')
 args3[key] = []
-args3[key].append(('32 MNLI-bin', int(123873*step_factor), 3, int(7432*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
-args3[key].append(('32 QNLI-bin', int(33112*step_factor), 2, int(1986*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
-args3[key].append(('32 QQP-bin', int(113272*step_factor), 2, int(28318*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
-args3[key].append(('16 RTE-bin', int(2036*step_factor), 2, int(122*warmup_factor), 2e-05*lr_factor, 'accuracy', True))
-args3[key].append(('32 SST-2-bin', int(20935*step_factor), 2, int(1256*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
-args3[key].append(('16 MRPC-bin', int(2296*step_factor), 2, int(137*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
-args3[key].append(('16 CoLA-bin', int(5336*step_factor), 2, int(320*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
+#args3[key].append(('32 MNLI-bin', int(123873*step_factor), 3, int(7432*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
+#args3[key].append(('32 QNLI-bin', int(33112*step_factor), 2, int(1986*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
+#args3[key].append(('32 QQP-bin', int(113272*step_factor), 2, int(28318*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
+#args3[key].append(('16 RTE-bin', int(2036*step_factor), 2, int(122*warmup_factor), 2e-05*lr_factor, 'accuracy', True))
+#args3[key].append(('32 SST-2-bin', int(20935*step_factor), 2, int(1256*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
+#args3[key].append(('16 MRPC-bin', int(2296*step_factor), 2, int(137*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
+#args3[key].append(('16 CoLA-bin', int(5336*step_factor), 2, int(320*warmup_factor), 1e-05*lr_factor, 'accuracy', True))
 args3[key].append(('16 STS-B-bin --regression-target', int(3598*step_factor), 1, int(214*warmup_factor), 2e-05*lr_factor, 'loss', False))
 #args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(True, 32, False, 'quantile'), (False, 32, True, 'quantile'), (False, 8, True, 'quantile'), (False, 8, True, 'dynamic_tree')]
 #args3[('fused', 'adam-bits', 'memory-efficient-fp16', 'adam8bits-method')] = [(True, 32, False, 'quantile'), (True, 32, True, 'quantile')]
@@ -78,8 +87,6 @@ args3[key].append(('16 STS-B-bin --regression-target', int(3598*step_factor), 1,
 #args3['adam8bits-offset'] = [1/512]
 #args3['prob-quant'] = [True]
 #args3['adam-betas'] = ["'(0.9, 0.995)'", "'(0.9, 0.99)'", "'(0.9, 0.98)'"]
-args3['adam-betas'] = ["'(0.9, 0.98)'"]
-args3['adam-eps'] = [1e-6]
 #args3['adam8bits-qfreq'] = [1]
 #args3['adam8bits-method'] = ['quantile', 'dynamic_tree']
 #args3['percentile-clipping'] = [100]
@@ -87,10 +94,8 @@ args3['adam-eps'] = [1e-6]
 #args3['use-emb-norm'] = [True]
 #args3[('memory-efficient-fp16', 'adam-bits')] = [(True, 8)]
 #args3['clip-norm'] = [0.4, 0.8]
-args3['optim-bits'] = [8]
-args3['use-bnb'] = [True]
-args3['use-blockwise'] = [True]
-args3['memory-efficient-fp16'] = [False]
+#args3['optim-bits'] = [8]
+#args3['use-blockwise'] = [True]
 #args3['stable-emb'] = [True]
 #args3['no-scale-embedding'] = [True]
 

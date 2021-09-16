@@ -21,10 +21,10 @@ args = parser.parse_args()
 
 gpus = 128
 
-cmd = 'fairseq-train /private/home/namangoyal/dataset/data-bin/bookwiki_CC-NEWS_openwebtext_stories_cc100-mmap2-bin   --distributed-world-size {0} --distributed-port 54187  --fp16  --memory-efficient-fp16   --num-workers 2   --criterion cross_entropy   --task language_modeling   --sample-break-mode none --log-interval 25   --tokens-per-sample 1024 --arch transformer_lm_big   --share-decoder-input-output-embed            --decoder-layers 28 --decoder-attention-heads 16 --dropout 0.0 --attention-dropout 0.0 --activation-dropout 0.0 --activation-fn relu    --no-epoch-checkpoints --keep-best-checkpoints 0  --keep-interval-updates 1 --keep-last-epochs 0 --save-interval-updates 1000 --log-format simple --fp16-no-flatten-grads --ignore-unused-valid-subsets'.format(gpus)
+cmd = 'fairseq-train /private/home/namangoyal/dataset/data-bin/bookwiki_CC-NEWS_openwebtext_stories_cc100-mmap2-bin   --distributed-world-size {0} --distributed-port 54187  --fp16  --memory-efficient-fp16   --num-workers 2   --criterion cross_entropy   --task language_modeling   --sample-break-mode none --log-interval 25   --tokens-per-sample 1024 --arch transformer_lm_big   --share-decoder-input-output-embed            --decoder-layers 28 --decoder-attention-heads 16 --dropout 0.0 --attention-dropout 0.0 --activation-dropout 0.0 --activation-fn relu    --no-epoch-checkpoints --keep-best-checkpoints 0  --keep-interval-updates 0 --keep-last-epochs 0 --save-interval-updates 1000 --log-format simple --fp16-no-flatten-grads --ignore-unused-valid-subsets'.format(gpus)
 args2 = {}
 
-name = 'blockwise2'
+name = 'blockwise5'
 constraint = 'volta32gb'
 
 
@@ -38,12 +38,13 @@ ckp_name = logfolder
 cores_per_job = 5
 mem = 56*(8 if gpus > 8 else gpus)
 num_seeds = 1
-seed_offset = 3
+seed_offset = 5
 time_hours = 72
 time_minutes = 0
-#partition = 'dev'
 #partition = 'learnlab,learnfair,scavenge'
-partition = 'learnlab,learnfair'
+partition = 'learnfair,learnlab'
+#partition = 'learnfair'
+#partition = 'uninterruptible'
 change_dir = 'fairseq_private'
 repo = 'fairseq_private'
 exclude = ''
@@ -62,6 +63,7 @@ args2['total-num-update'] = 56250
 #args2['max-update'] = 56250*4
 
 args2['fp16-scale-window'] = 250
+args2['clip-norm'] = 0.4
 #args3[('fused', 'adam-bits', 'adam8bits-method', 'adam8bits-qfreq')] = [(True, 32, 'quantile', 1), (False, 8, 'quantile', 1), (False, 8, 'dynamic_tree', 1), (False, 8, 'quantile', 25)]
 #args3[('fused', 'adam-bits', 'adam8bits-method', 'adam8bits-qfreq')] = [(True, 32, 'quantile', 1)]#, (False, 8, 'quantile', 1), (False, 8, 'dynamic_tree', 1), (False, 8, 'quantile', 25)]
 #args3[('fused', 'adam-bits', 'adam8bits-method', 'adam8bits-qfreq')] = [(True, 32, 'quantile', 1)]
@@ -95,9 +97,11 @@ args3[key] = []
 # adafactor
 #args3[('percentile-clipping', 'clip-norm')] = [(100, 0.1)]
 #args3[('fused', 'adam-bits', 'adam8bits-method', 'adam8bits-qfreq')] = [(False, 32, 'quantile', 1)]
+
 #args2['optimizer'] = 'adafactor'
 #args2['beta1'] = 0.9
 #args2['decay-rate'] = 0.999
+
 ##args3[key].append((2048,2048,8192,8, 0.00075))
 #args3[key].append((2048,2048+256,8192+2048,2))
 ##args3[key].append((2048,2688,10752,2))
@@ -106,16 +110,21 @@ args3[key] = []
 #args3[lrkey].append((lr, lr+1e-8, lr*0.1, lr*0.1 + 1e-8))
 
 # 8-bit
-args3[('percentile-clipping', 'clip-norm')] = [(5, 0.0)]
+#args3[('percentile-clipping', 'clip-norm')] = [(100, 0.1)]
+#args3[('percentile-clipping', 'clip-norm')] = [(100, 0.1)]
+#args3[('percentile-clipping', 'clip-norm')] = [(5, 0.0)]
 #args3[('fused', 'adam-bits', 'adam8bits-method', 'adam8bits-qfreq')] = [(False, 8, 'quantile', 1)]
 #args3[('fused', 'adam-bits', 'adam8bits-method', 'adam8bits-qfreq')] = [(False, 8, 'dynamic_tree', 1)]
 #args3[('fused', 'adam-bits', 'adam8bits-method', 'adam8bits-qfreq')] = [(False, 8, 'dynamic_tree', 1), (False, 8, 'quantile', 1)]
-args3['optimizer'] = ['adam']
-args2['no-scale-embedding'] = ''
-args2['use-bnb'] = ''
-args2['stable-emb'] = ''
 
-args3[('optim-bits', 'use-blockwise')] = [(8, True), (8, False)]
+args3['optimizer'] = ['adam']
+args3[('use-bnb', 'optim-bits')] = [(True, 8)]
+args3[('stable-emb', 'no-scale-embedding')] = [(True, True)]
+
+#args3[('use-bnb', 'stable-emb', 'no-scale-embedding')] = [(True, True, True), (False, False, False)]
+#args3[('use-bnb', 'stable-emb', 'no-scale-embedding')] = [(False, False, False)]
+#args3[('use-bnb', 'stable-emb', 'no-scale-embedding', 'optim-bits')] = [(True, True, True, True)]
+
 
 args3[key].append((2048,2048,8192,8, 0.00075))
 #args3[key].append((2048,2048,8192,8, 0.00045))
@@ -204,5 +213,5 @@ if args.dry:
     print('Run in folder: {0}'.format(change_dir))
 
 if not args.dry:
-    s.run_jobs(comment='"NeurIPS deadline 2021-05-28"')
+    s.run_jobs()
 
