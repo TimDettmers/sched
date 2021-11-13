@@ -14,7 +14,6 @@ import copy
 import hashlib
 
 from queue import Queue
-from bs4 import BeautifulSoup
 from os.path import join
 from aenum import Enum
 
@@ -436,6 +435,7 @@ class SshScheduler(object):
 
     def parse_nvidia_smi(self, text, host):
         """Parses nvidia-smi output."""
+        from bs4 import BeautifulSoup
         xml_soup = BeautifulSoup(text, 'xml')
         gpus = []
         num_available = 0

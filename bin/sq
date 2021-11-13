@@ -1,0 +1,2 @@
+#!/bin/bash
+squeue -t pd -S+p -O "jobid,account,partition,nodes,gres,username,cpus-per-task,minmemory,gres,reason,TimeLimit"

@@ -64,6 +64,7 @@ if args.limits is not None: args.limits = tuple(args.limits)
 folders = [x[0] for x in os.walk(args.folder_path)]
 
 
+
 if metrics is not None:
     for metric in metrics:
         regex = re.compile(r'(?<={0}).*(?={1})'.format(metric['start_regex'], metric['end_regex']))
@@ -113,6 +114,7 @@ for folder in folders:
                     if contains != '' and not contains in line: continue
                     regex = metric['regex']
                     name = metric['name']
+                    func = metric['func']
                     matches = re.findall(regex, line)
                     if len(matches) > 0:
                         #if not has_config:
@@ -122,7 +124,10 @@ for folder in folders:
                         try:
                             val = matches[0].strip()
                             if ',' in val: val = val.replace(',', '')
-                            config['METRICS'][name].append(float(val))
+                            val = float(val)
+                            if func != '':
+                                val = eval(func)(val)
+                            config['METRICS'][name].append(val)
                         except:
                             print(line)
                             print(regex)
@@ -240,7 +245,6 @@ while i < len(configs):
     # removal based on not satisfying filter value
     for key, value in cfg.items():
         if key in args.filter:
-            print('a'*90)
             if not eval(args.filter[key].format(value)): remove = True
 
     if args.hard_filter:

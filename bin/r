@@ -1,0 +1,5 @@
+#!/bin/bash
+
+awk '$7 ~/gpu:/ { print }' <(squeue -t r -O "JobID,UserName,Account,Partition,cpus-per-task,NodeList,Gres,TimeUsed,EndTime") 
+#awk '$9 ~/2021-10-01/ { print }' <(squeue -t r -O "JobID,UserName,Account,Partition,cpus-per-task,NodeList,Gres,TimeUsed,EndTime,TimeLimit") 
+#squeue -t r -O "JobID,UserName,Account,Partition,cpus-per-task,NodeList,Gres,TimeUsed,EndTime,TimeLimit"

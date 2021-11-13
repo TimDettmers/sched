@@ -6,5 +6,5 @@ else
   P=$1
 fi
    
-sinfo -p $P -O partition,nodehost,gres,gresused,freemem,cpusstate 
+awk '$3 != "(null)" { print }'  <(sinfo -p $P -O partition,nodehost,gres,gresused,freemem,cpusstate)
 
