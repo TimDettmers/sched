@@ -187,6 +187,7 @@ for config in configs:
             if i > x.size: i = -1
             if x.size == 0: x = float('nan')
             else:
+                if i >= x.size: continue
                 x = x[i]
         elif metric['agg'] == 'idx':
             name2 = metric['reference_metric_name']
@@ -221,7 +222,7 @@ for keyvalue in args.filter:
     if any([c in value for c in ['>', '<']]):
         filters[key] = "{0}" + value
     else:
-        filters[key] = "{0}==" + value
+        filters[key] = "'{0}'=='" + value + "'"
 args.filter = filters
 
 print(args.filter)
@@ -245,7 +246,11 @@ while i < len(configs):
     # removal based on not satisfying filter value
     for key, value in cfg.items():
         if key in args.filter:
-            if not eval(args.filter[key].format(value)): remove = True
+            try:
+                if not eval(args.filter[key].format(value)): remove = True
+            except Exception as ex:
+                print(f'filter caught exception: {ex}')
+                remove = True
 
     if args.hard_filter:
         for key in args.filter:

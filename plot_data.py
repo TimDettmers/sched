@@ -27,8 +27,13 @@ parser.add_argument('--top', type=int, default=None, help='Filter out all the sc
 parser.add_argument('--scale', type=float, default=None, help='Multiply metric by this value.')
 parser.add_argument('--ylim', nargs='+', type=float, default=None, help='Sets the [min, max] range of the metric value (two space separated values).')
 parser.add_argument('--rename', type=str, nargs='+', default='', help='Argument(s) which should be kept by value (arg=value). Multiple arguments separated with a comma.')
+parser.add_argument('--fontscale', type=float, default=1.0, help='Filter out all the scores except the top n entries.')
 
 args = parser.parse_args()
+
+
+sns.set(font_scale=args.fontscale)
+print(args)
 
 #args.ploty = 'Median' if args.median else args.ploty
 #args.ploty = 'Value' if args.ci else args.ploty
@@ -80,7 +85,7 @@ if args.print:
 #plt.xlim(0.0, 250)
 #plt.xlim(0, 1050)
 
-plt.title(args.title, fontsize=18)
+plt.title(args.title, fontsize=args.fontscale*18)
 if args.category == '':
     #sns.lineplot(df[args.plotx], df[args.ploty])
     ax = sns.regplot(x=args.plotx, y=args.ploty,data=df, scatter=True)
@@ -96,16 +101,28 @@ else:
         else:
             ax = sns.catplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full', kind='point', ci=95.0 if args.ci else None, err_style='bars')
         plt.subplots_adjust(top=0.9)
-        ax.fig.suptitle(args.title, fontsize=18)
+        ax.fig.suptitle(args.title, fontsize=args.fontscale*18)
         ax.set_xticklabels(rotation=args.tick_rotation)
     else:
         ax = sns.relplot(x=args.plotx, y=args.ploty,data=df, hue=args.category, palette=sns.color_palette('colorblind', num_values), legend='full')
         plt.subplots_adjust(top=0.9)
-        ax.fig.suptitle(args.title, fontsize=18)
+        ax.fig.suptitle(args.title, fontsize=args.fontscale*18)
         ax.set_xticklabels(rotation=args.tick_rotation)
 
 if args.ylim is not None:
     plt.ylim(*args.ylim)
 
-plt.ylabel(args.namey, fontsize=13)
+plt.ylabel(args.namey, fontsize=13*args.fontscale)
+plt.xlabel(args.plotx, fontsize=13*args.fontscale)
+ax._legend.set_title(args.category)
+
+#ax.set_yticklabels(size=args.fontsize-7)
+#ax.set_xticklabels(size=args.fontsize-7)
+#_, ylabels = plt.yticks()
+#print(ylabels, ax.yticklabels)
+#ax.set_yticklabels(ylabels, size=args.fontsize-9)
+#_, xlabels = plt.xticks()
+#ax.set_xticklabels(xlabels, size=args.fontsize-9)
+#plt.setp(ax._legend.get_texts(), fontsize=args.fontsize-5) # for legend text
+#plt.setp(ax._legend.get_title(), fontsize=args.fontsize-5) # for legend title
 plt.savefig(args.out, bbox_inches='tight')

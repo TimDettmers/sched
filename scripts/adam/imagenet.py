@@ -33,7 +33,7 @@ ckp_name = logfolder
 cores_per_job = 5
 mem = 48*(8 if gpus > 8 else gpus)
 num_seeds = 1
-seed_offset = 0
+seed_offset = 4
 time_hours = 48
 time_minutes = 0
 

@@ -24,21 +24,22 @@ cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_m
 
 args2 = {}
 
-name = 'bottleneck_pre1'
+name = 'adagrad2'
 constraint = 'volta'
 
 logfolder = 'experimental/cc_small/{0}'.format(name)
 ckp_name = logfolder
 cores_per_job = 10
 mem = 48*(8 if gpus > 8 else gpus)
-num_seeds = 1
-seed_offset = 1
-time_hours = 16
+num_seeds = 2
+seed_offset = 2
+time_hours = 8
 time_minutes = 0
 
 begin = None
-partition = 'learnlab,learnfair,scavenge'
-#partition = 'learnlab,learnfair'
+#partition = 'learnlab,learnfair,scavenge'
+partition = 'learnlab,learnfair'
+#partition = 'devlab'
 
 #begin = 'now+8hours'
 #begin = '19:00'
@@ -65,23 +66,18 @@ args2['arch'] = 'transformer_lm'
 args2['weight-decay'] = 0.00
 args2['validate-interval-updates'] = 1000
 args2['save-interval-updates'] = 1000
-args2['lr-scheduler'] = 'cosine'
 args2['fp16-no-flatten-grads'] = ''
 args2['min-loss-scale'] = 1e-10
 args2['fp16-scale-window'] = 250
 args2['clip-norm'] = 0.6
 
-args3[('ff-block','maxout', 'scale-factor')] = [('bottleneck', 2, 1)]
-#args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 1))
-args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 4, 1))
-args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 8, 1))
-#args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 2, 2))
-#args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 2))
-#args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 4))
 
-args2['optimizer'] = 'adam'
-args3['adam-betas'] = ["'(0.9, 0.995)'"] # baseline params
-args3['adam-eps'] = [1e-7] # baseline params
+
+#args2['lr-scheduler'] = 'cosine'
+#args2['optimizer'] = 'adam'
+#args3['adam-betas'] = ["'(0.9, 0.995)'"] # baseline params
+#args3['adam-eps'] = [1e-7] # baseline params
+
 args3['decoder-layers'] = [10]
 args3[('max-tokens', 'update-freq', 'tokens-per-sample')] = []
 args3[('max-tokens', 'update-freq', 'tokens-per-sample')].append((2048, 128//gpus, 512))
@@ -91,12 +87,24 @@ args3[('max-update', 'warmup-updates', '')] = [(16000, 3000, ' /private/home/tim
 
 args3['weight-decay'] = [0.00]
 
-key = ('lr', 'warmup-init-lr')
-args3[key] = []
-for params in [1e5]:
-    lr = 0.003239 + (-0.0001395*math.log(params))
+#args3['attention-8bit'] = ['test']
+#args3['attn-scale'] = [True, False]
+
+args2['lr-scheduler'] = 'fixed'
+args2['optimizer'] = 'adagrad'
+#key = ('lr', 'warmup-init-lr')
+#key = ('lr', 'warmup-init-lr')
+#args3[key] = [(0.05, 0.0)]
+args2['lr'] = 0.05
+args3[('use-bnb', 'optim-bits')] = [(True, 32), (True, 8), (False, 32)]
+
+
+#key = ('lr', 'warmup-init-lr')
+#args3[key] = []
+#for params in [1e5]:
+    #lr = 0.003239 + (-0.0001395*math.log(params))
     #args3[key].append((lr, lr*0.1))
-    args3[key].append((lr, 0.0))
+    #args3[key].append((lr, 0.0))
 args4 = []
 
 args5 = {}
