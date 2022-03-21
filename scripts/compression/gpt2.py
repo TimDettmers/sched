@@ -20,7 +20,7 @@ parser.add_argument('--skip', nargs='+', type=int, default=None, help='Sets the 
 args = parser.parse_args()
 
 
-gpus = 8
+gpus = 32
 cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 1 --distributed-port 12597 --distributed-world-size {0} --valid-subset valid'.format(gpus)
 
 args2 = {}
@@ -41,15 +41,16 @@ time_minutes = 0
 begin = None
 exclude = ''
 
-#account = 'ark'
-#account = 'cse'
-#account = 'stf'
-account = 'zlab'
+#partition = 'learnlab,learnfair,scavenge'
+#partition = 'learnlab,learnfair'
+partition = 'learnlab'
+#partition = 'devlab'
 
+#begin = 'now+8hours'
+#begin = '19:00'
+#begin = '03:00'
+#partition = 'scavenge'
 
-#partition = 'gpu-2080ti'
-partition = 'gpu-rtx6k'
-#partition = 'ckpt'
 
 #begin = 'now+3hours'
 #begin = '19:00'
@@ -59,7 +60,7 @@ change_dir = 'fairseq_private/'
 repo = 'fairseq_private'
 #exclude = 'g3007'
 
-s = gpuscheduler.HyakScheduler(verbose=args.verbose, account=account, partition=partition, use_gres=False)
+s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=partition, use_gres=False)
 
 fp16 = True
 args3 = {}
@@ -82,15 +83,15 @@ args2['fp16-scale-window'] = 250
 args2['valid-subset'] = 'valid_wiki,valid,valid_1b,valid_lambada,valid_wiki2,valid_ptb'
 #args2['no-scale-embedding'] = ''
 #args2['stable-emb'] = ''
-#args2['comm8bit'] = ''
+args2['comm8bit'] = ''
 
 #args2['use-bnb'] = ''
 #args2['optim-bits'] = 8
 #args2['memory-efficient-fp16'] = ''
 
-args3[('ff-block','maxout', 'scale-factor')] = []
-args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 2))
-args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 4))
+#args3[('ff-block','maxout', 'scale-factor')] = []
+#args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 2))
+#args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 4))
 #
 #args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 2, 1))
 #args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 4, 1))
@@ -112,9 +113,9 @@ args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 4))
 # queued: m2s2 (zlab), m2s4 (zlab)
 
 
-#args3['num-stages'] = [2, 4]
+args3['num-stages'] = [2, 4]
 #args3['num-stages'] = [4]
-args3['num-stages'] = [2]
+#args3['num-stages'] = [2]
 
 args3['clip-norm'] = [0.1]
 args2['optimizer'] = 'adam'
@@ -126,7 +127,7 @@ args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0)]
 args3[('max-tokens', 'update-freq', 'tokens-per-sample', 'max-update')] = []
 args3[('max-tokens', 'update-freq', 'tokens-per-sample', 'max-update')].append((2048, 128//gpus, 512, int(16944*2*1.0666)))
 #args3[('max-tokens', 'update-freq', 'tokens-per-sample', 'max-update')].append((2048, 64//gpus, 1024, 16944*4))
-args3[('warmup-updates', '')] = [(5000, ' /mmfs1/home/dettmers/data/openwebtext')]
+args3[('warmup-updates', '')] = [(5000, ' /private/home/timdettmers/data/owt')]
 
 args3['weight-decay'] = [0.00]
 
@@ -197,7 +198,8 @@ for seed in range(num_seeds):
             #job_cmd += ' --checkpoint /checkpoint/timdettmers/{1}/{0}/model.pt'.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
             if not fp16: job_cmd = job_cmd.replace('--fp16 ', ' ')
             job_cmd = job_cmd + ' --seed {0}'.format(seed)
-            checkpoint_dir = '/gscratch/scrubbed/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
+            #checkpoint_dir = '/gscratch/scrubbed/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
+            checkpoint_dir = '/checkpoint/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
             save_dir = ' --save-dir {0}'.format(checkpoint_dir)
             job_cmd = job_cmd + save_dir
             #job_cmd += ' --attention-8bit 32bit '
@@ -224,7 +226,8 @@ if args.dry:
     print('Time hours: {0}'.format(time_hours))
     print('GPUs: {0}'.format(gpus))
     print('begin: {0}'.format(begin))
-    print('Jobs will be written to: {0}'.format(join('/mmfs1/home/dettmers/data/logs', logfolder)))
+    #print('Jobs will be written to: {0}'.format(join('/mmfs1/home/dettmers/data/logs', logfolder)))
+    print('Jobs will be written to: {0}'.format(join('/private/home/timdettmers/logs/', logfolder)))
     print('Jobs will be run on: {0}'.format(partition))
     print('Run in folder: {0}'.format(change_dir))
 

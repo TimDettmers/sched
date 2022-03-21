@@ -19,26 +19,26 @@ parser.add_argument('--p', type=float, default=1.0, help='Probability with which
 args = parser.parse_args()
 
 
-gpus = 8
+gpus = 32
 cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 1 --distributed-port 12597 --distributed-world-size {0} --valid-subset valid'.format(gpus)
 
 args2 = {}
 
-name = 'adagrad2'
+name = 'butterfly1'
 constraint = 'volta'
 
 logfolder = 'experimental/cc_small/{0}'.format(name)
 ckp_name = logfolder
 cores_per_job = 10
 mem = 48*(8 if gpus > 8 else gpus)
-num_seeds = 2
-seed_offset = 2
-time_hours = 8
+num_seeds = 1
+seed_offset = 0
+time_hours = 12
 time_minutes = 0
 
 begin = None
 #partition = 'learnlab,learnfair,scavenge'
-partition = 'learnlab,learnfair'
+partition = 'learnlab'
 #partition = 'devlab'
 
 #begin = 'now+8hours'
@@ -73,38 +73,61 @@ args2['clip-norm'] = 0.6
 
 
 
-#args2['lr-scheduler'] = 'cosine'
-#args2['optimizer'] = 'adam'
-#args3['adam-betas'] = ["'(0.9, 0.995)'"] # baseline params
-#args3['adam-eps'] = [1e-7] # baseline params
+args2['lr-scheduler'] = 'cosine'
+args2['optimizer'] = 'adam'
+args3['adam-betas'] = ["'(0.9, 0.995)'"] # baseline params
+args3['adam-eps'] = [1e-7] # baseline params
 
-args3['decoder-layers'] = [10]
+
+#args2['optimizer'] = 'adafactor'
+#args2['beta1'] = 0.9
+#args2['decay-rate'] = 0.98
+
 args3[('max-tokens', 'update-freq', 'tokens-per-sample')] = []
 args3[('max-tokens', 'update-freq', 'tokens-per-sample')].append((2048, 128//gpus, 512))
-args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0)]
-
 args3[('max-update', 'warmup-updates', '')] = [(16000, 3000, ' /private/home/timdettmers/data/cc_small')]
 
-args3['weight-decay'] = [0.00]
+#args3[('max-tokens', 'update-freq', 'tokens-per-sample', 'max-update', 'warmup-updates', '')] = []
+#args3[('max-tokens', 'update-freq', 'tokens-per-sample', 'max-update', 'warmup-updates', '')].append((2048, 2*128//gpus, 512, 16000//2, 3000//2, ' /private/home/timdettmers/data/cc_small')) # 1024 120 s/u
+#args3[('max-tokens', 'update-freq', 'tokens-per-sample', 'max-update', 'warmup-updates', '')].append((2048, 8*128//gpus, 512, 16000//8, 3000//8, ' /private/home/timdettmers/data/cc_small')) # 4k 480
+#args3[('max-tokens', 'update-freq', 'tokens-per-sample', 'max-update', 'warmup-updates', '')].append((2048, 16*128//gpus, 512, 16000//16, 3000//16, ' /private/home/timdettmers/data/cc_small')) #8k 1k
+#args3[('max-tokens', 'update-freq', 'tokens-per-sample', 'max-update', 'warmup-updates', '')].append((2048, 32*128//gpus, 512, 16000//32, 3000//32, ' /private/home/timdettmers/data/cc_small')) # 16k 2k
+#args3[('max-tokens', 'update-freq', 'tokens-per-sample', 'max-update', 'warmup-updates', '')].append((2048, 64*128//gpus, 512, 16000//64, 3000//64, ' /private/home/timdettmers/data/cc_small')) # 32k 4k
+#args3[('max-tokens', 'update-freq', 'tokens-per-sample', 'max-update', 'warmup-updates', '')].append((2048, 128*128//gpus, 512, 16000//128, 3000//128, ' /private/home/timdettmers/data/cc_small')) # 32k 8k
+
+args3['decoder-layers'] = [10]
+
+
+args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0)]
+#args3['weight-decay'] = [0.00]
+
+args3['ff-block'] = ['butterfly']
+args3['butterfly-low-rank'] = [0, 0.1, 0.2]
+args3['butterfly-block-size'] = [16, 32, 64]
 
 #args3['attention-8bit'] = ['test']
 #args3['attn-scale'] = [True, False]
 
-args2['lr-scheduler'] = 'fixed'
-args2['optimizer'] = 'adagrad'
-#key = ('lr', 'warmup-init-lr')
-#key = ('lr', 'warmup-init-lr')
-#args3[key] = [(0.05, 0.0)]
-args2['lr'] = 0.05
-args3[('use-bnb', 'optim-bits')] = [(True, 32), (True, 8), (False, 32)]
+#args2['lr-scheduler'] = 'fixed'
+#args2['optimizer'] = 'adagrad'
+#args2['lr'] = 0.05
+
+#args3[('optim-bits', 'use-bnb', 'no-scale-embedding', 'stable-emb', 'stable-emb-config')] = [(32, True, False, False, 'false')]
+#args3[('optim-bits', 'use-bnb', 'no-scale-embedding', 'stable-emb', 'stable-emb-config')].append((8, True, True, True, '"norm|xavier|32bit"'))
+#args3[('optim-bits', 'use-bnb', 'no-scale-embedding', 'stable-emb', 'stable-emb-config')].append((8, True, True, True, '"norm|xavier"'))
+#args3[('optim-bits', 'use-bnb', 'no-scale-embedding', 'stable-emb', 'stable-emb-config')].append((8, True, True, True, '"norm|32bit"'))
+#args3[('optim-bits', 'use-bnb', 'no-scale-embedding', 'stable-emb', 'stable-emb-config')].append((8, True, False, True, '"xavier|32bit"'))
+#args3[('optim-bits', 'use-bnb', 'no-scale-embedding', 'stable-emb', 'stable-emb-config')].append((8, True, False, True, '"32bit"'))
+#args3[('optim-bits', 'use-bnb', 'no-scale-embedding', 'stable-emb', 'stable-emb-config')].append((8, True, False, True, '"xavier"'))
+#args3[('optim-bits', 'use-bnb', 'no-scale-embedding', 'stable-emb', 'stable-emb-config')].append((8, True, True, True, '"norm"'))
+#args3[('optim-bits', 'use-bnb', 'no-scale-embedding', 'stable-emb', 'stable-emb-config')].append((8, True, False, False, '""'))
 
 
-#key = ('lr', 'warmup-init-lr')
-#args3[key] = []
-#for params in [1e5]:
-    #lr = 0.003239 + (-0.0001395*math.log(params))
-    #args3[key].append((lr, lr*0.1))
-    #args3[key].append((lr, 0.0))
+key = ('lr', 'warmup-init-lr')
+args3[key] = []
+for params in [1e5]:
+    lr = 0.003239 + (-0.0001395*math.log(params))
+    args3[key].append((lr, 0.0))
 args4 = []
 
 args5 = {}

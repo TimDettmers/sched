@@ -9,7 +9,7 @@ fi
 
 if [ -z $2 ]
 then
-  user=dettmers
+  user=timdettmers
 else
   user=$2
 fi

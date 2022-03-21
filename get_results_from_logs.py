@@ -114,7 +114,7 @@ for folder in folders:
                     if contains != '' and not contains in line: continue
                     regex = metric['regex']
                     name = metric['name']
-                    func = metric['func']
+                    func = metric.get('func', '')
                     matches = re.findall(regex, line)
                     if len(matches) > 0:
                         #if not has_config:

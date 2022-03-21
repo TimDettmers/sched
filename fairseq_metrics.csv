@@ -1,36 +1,35 @@
 name,start_regex,end_regex,contains,smaller_is_better,agg,reference_metric_name,value,func
 #loss,loss,\| nll,| valid |,1,min,
 #accuracy,accuracy,\| corr,| valid |,0,max,
+#trainppl,ppl=,", wps",,1,min,
 ppl,ppl,\| wps,valid',1,min,
-ppllambada,ppl,\| wps,valid_lambada,1,min,,,"lambda x: 2**(math.log2(x)*(399/361))"
-pplwiki2k,ppl,\| wps,valid_wiki2,1,min,,,"lambda x: 2**(math.log2(x)*(243/214))"
-pplwiki,ppl,\| wps,valid_wiki,1,min,,,"lambda x: 2**(math.log2(x)*(243/214))"
+#ppllambada,ppl,\| wps,valid_lambada,1,min,,,"lambda x: 2**(math.log2(x)*(399/361))"
+#pplwiki2k,ppl,\| wps,valid_wiki2,1,min,,,"lambda x: 2**(math.log2(x)*(243/214))"
+#pplwiki,ppl,\| wps,valid_wiki,1,min,,,"lambda x: 2**(math.log2(x)*(243/214))"
 #pplccnews,ppl,\| wps,valid_ccnews,1,min,,,
-pplptb,ppl,\| wps,valid_ptb,1,min,,,"lambda x: 2**(math.log2(x)*(865/704))"
-ppl1b,ppl,\| wps,valid_1b,1,min,,,"lambda x: 2**(math.log2(x)*(283/253))"
+#pplptb,ppl,\| wps,valid_ptb,1,min,,,"lambda x: 2**(math.log2(x)*(865/704))"
+#ppl1b,ppl,\| wps,valid_1b,1,min,,,"lambda x: 2**(math.log2(x)*(283/253))"
 #lastppl,ppl,\| wps,valid,1,last,
-trainppl,ppl=,", wps",,1,min,
-finished,"done training in",seconds,,0,last
 #finished,"done training in",seconds,,0,last
+finished,"done training in",seconds,,0,last
 wps,wps=,", ups",,0,mean,
 #gbfree,gb_free=, wall,,1,min
 trainsteps,"num_updates=",", lr",,0,last,
-params,"trained:","\)","shared",0,last,
+params,"trained:","\)","non-expert",0,last,,,"lambda x: x/1e6"
 #runtime,", wall=",,,0,last,
-steps,\| num_updates,\|,| best |,0,last,
 #ppl1k,ppl,\| wps,| valid |,1,stop,steps,2000
 #ppl2k,ppl,\| wps,| valid |,1,stop,steps,3000
 #ppl3k,ppl,\| wps,| valid |,1,stop,steps,4000
 #ppl4k,ppl,\| wps,| valid |,1,stop,steps,5000
 #ppl5k,ppl,\| wps,| valid |,1,stop,steps,6000
-ppl7k,ppl,\| wps, valid,1,stop,steps,8000
+#ppl7k,ppl,\| wps, valid,1,stop,steps,8000
 #ppl10k,ppl,\| wps,| valid |,1,stop,steps,11000
 steps,\| num_updates,\|,| valid |,0,last,
 #sparsity,sparsity:,", z",,0,mean,
 #ppl1k,ppl,\| wps,| valid ,1,stop,steps,2000
 #ppl2k,ppl,\| wps,| valid |,1,stop,steps,3000
 #ppl3k,ppl,\| wps,| valid |,1,stop,trainsteps,4000
-ppl4k,ppl,\| wps,| valid |,1,stop,steps,5000
+#ppl4k,ppl,\| wps,| valid |,1,stop,steps,5000
 #ppl5k,ppl,\| wps,| valid |,1,stop,steps,6000
 #ppl6k,ppl,\| wps,| valid |,1,stop,steps,7000
 #ppl7k,ppl,\| wps,| valid |,1,stop,steps,8000
@@ -40,5 +39,6 @@ ppl4k,ppl,\| wps,| valid |,1,stop,steps,5000
 #ppl3k,"ppl=",", wps",,1,stop,trainsteps,3000
 #ppl4k,"ppl=",", wps",,1,stop,trainsteps,4000
 #ppl6k,"ppl=",", wps",,1,stop,trainsteps,6000
-ppl10k,"ppl=",", wps",,1,stop,trainsteps,10000
-ppl34k,"ppl=",", wps",,1,stop,trainsteps,34000
+#ppl10k,"ppl=",", wps",,1,stop,trainsteps,10000
+#ppl34k,"ppl=",", wps",,1,stop,trainsteps,34000
+#ppl68k,"ppl=",", wps",,1,stop,trainsteps,68000

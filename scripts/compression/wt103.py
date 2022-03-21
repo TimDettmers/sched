@@ -21,21 +21,21 @@ args = parser.parse_args()
 
 
 gpus = 8
-cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling data-bin/wikitext-103 --save-dir checkpoints/transformer_wikitext-103 --arch transformer_lm_wiki103 --max-update 286000 --lr 1.0 --t-mult 2 --lr-period-updates 270000 --lr-scheduler cosine --lr-shrink 0.75 --warmup-updates 16000 --warmup-init-lr 1e-07 --stop-min-lr 1e-09 --optimizer nag --min-lr 0.0001 --clip-norm 0.1 --criterion adaptive_loss --max-tokens 3072 --update-freq 3 --tokens-per-sample 3072 --seed 1 --sample-break-mode none --skip-invalid-size-inputs-valid-test --ddp-backend=legacy_ddp --log-format simple --log-interval 50 --fp16'
+cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling data-bin/wikitext-103 --save-dir checkpoints/transformer_wikitext-103 --arch transformer_lm_wiki103 --max-update 286000 --lr 1.0 --t-mult 2 --lr-period-updates 270000 --lr-scheduler cosine --lr-shrink 0.75 --warmup-updates 16000 --warmup-init-lr 1e-07 --stop-min-lr 1e-09 --optimizer nag --min-lr 0.0001 --clip-norm 0.1 --criterion adaptive_loss --max-tokens 2048 --update-freq 5 --tokens-per-sample 2048 --seed 1 --sample-break-mode none --skip-invalid-size-inputs-valid-test --ddp-backend=no_c10d --log-format simple --log-interval 50 --distributed-port 12597 --distributed-world-size {0}'.format(gpus)
 
 args2 = {}
 
 name = 'wt103_1'
 #name = 'gpt2_compression9'
-constraint = ''
+constraint = 'volta32gb'
 
 logfolder = 'compression/{0}'.format(name)
 ckp_name = logfolder
 cores_per_job = 4
-mem = 16*(8 if gpus > 8 else gpus)
-num_seeds = 1
-seed_offset = 0
-time_hours = 24*7
+mem = 24*(8 if gpus > 8 else gpus)
+num_seeds = 2
+seed_offset = 2
+time_hours = 72
 time_minutes = 0
 
 begin = None
@@ -44,12 +44,14 @@ exclude = ''
 #account = 'ark'
 #account = 'cse'
 #account = 'stf'
-account = 'zlab'
+#account = 'zlab'
+
+
 
 
 #partition = 'gpu-2080ti'
-partition = 'gpu-rtx6k'
-#partition = 'ckpt'
+#partition = 'gpu-rtx6k'
+partition = 'devlab'
 
 #begin = 'now+3hours'
 #begin = '19:00'
@@ -59,9 +61,9 @@ change_dir = 'fairseq_private/'
 repo = 'fairseq_private'
 #exclude = 'g3007'
 
-s = gpuscheduler.HyakScheduler(verbose=args.verbose, account=account, partition=partition, use_gres=False)
+s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=partition, use_gres=False)
 
-fp16 = True
+fp16 = False
 args3 = {}
 
 key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'decoder-input-dim', 'decoder-output-dim')
@@ -78,21 +80,21 @@ for model_dim in [1024]:
 #args2['lr-scheduler'] = 'cosine'
 #args2['fp16-no-flatten-grads'] = ''
 #args2['min-loss-scale'] = 1e-10
-args2['fp16-scale-window'] = 250
+#args2['fp16-scale-window'] = 250
 #args2['valid-subset'] = 'valid_wiki,valid,valid_1b,valid_lambada,valid_wiki2,valid_ptb'
 #args2['no-scale-embedding'] = ''
 #args2['stable-emb'] = ''
-#args2['comm8bit'] = ''
+args2['comm8bit'] = ''
 
 #args2['use-bnb'] = ''
 #args2['optim-bits'] = 8
 #args2['memory-efficient-fp16'] = ''
 
-args3[('ff-block','maxout', 'scale-factor')] = []
-args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 2))
-#args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 4))
-args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 2, 1))
-args3['num-stages'] = [2]
+#args3[('ff-block','maxout', 'scale-factor')] = []
+#args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 2))
+##args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 1, 4))
+#args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 2, 1))
+args3['num-stages'] = [2, 4]
 #
 #args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 2, 1))
 #args3[('ff-block','maxout', 'scale-factor')].append(('bottleneck', 4, 1))
@@ -198,7 +200,8 @@ for seed in range(num_seeds):
             #job_cmd += ' --checkpoint /checkpoint/timdettmers/{1}/{0}/model.pt'.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
             if not fp16: job_cmd = job_cmd.replace('--fp16 ', ' ')
             job_cmd = job_cmd + ' --seed {0}'.format(seed)
-            checkpoint_dir = '/gscratch/scrubbed/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
+            #checkpoint_dir = '/gscratch/scrubbed/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
+            checkpoint_dir = '/checkpoint/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
             save_dir = ' --save-dir {0}'.format(checkpoint_dir)
             job_cmd = job_cmd + save_dir
             #job_cmd += ' --attention-8bit 32bit '
@@ -225,7 +228,7 @@ if args.dry:
     print('Time hours: {0}'.format(time_hours))
     print('GPUs: {0}'.format(gpus))
     print('begin: {0}'.format(begin))
-    print('Jobs will be written to: {0}'.format(join('/mmfs1/home/dettmers/data/logs', logfolder)))
+    print('Jobs will be written to: {0}'.format(join('/private/home/timdettmers/logs/', logfolder)))
     print('Jobs will be run on: {0}'.format(partition))
     print('Run in folder: {0}'.format(change_dir))
 
