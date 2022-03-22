@@ -46,6 +46,7 @@ partition = 'learnlab'
 #begin = '03:00'
 #partition = 'scavenge'
 
+checkpoint_base_dir = '/gscratch/scrubbed/timdettmers/'
 change_dir = 'fairseq_private/'
 repo = 'fairseq_private'
 exclude = ''
@@ -219,7 +220,7 @@ if args.dry:
     print('Time hours: {0}'.format(time_hours))
     print('GPUs: {0}'.format(gpus))
     print('begin: {0}'.format(begin))
-    print('Jobs will be written to: {0}'.format(join('/private/home/timdettmers/logs/', logfolder)))
+    print('Jobs will be written to: {0}'.format(join(s.config['LOG_HOME'], logfolder)))
     print('Jobs will be run on: {0}'.format(partition))
     print('Run in folder: {0}'.format(change_dir))
 
