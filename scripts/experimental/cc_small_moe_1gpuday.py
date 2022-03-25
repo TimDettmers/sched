@@ -24,20 +24,20 @@ cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_m
 
 args2 = {}
 
-name = 'grid_1day2'
+name = '1day_baseline2'
 constraint = 'volta'
 
 logfolder = 'experimental/cc_small/{0}'.format(name)
 ckp_name = logfolder
 cores_per_job = 10
 mem = 48*(8 if gpus > 8 else gpus)
-num_seeds = 1
+num_seeds = 5
 seed_offset = 0
 time_hours = 3
 time_minutes = 0
 
 begin = None
-partition = 'learnfair,learnlab'
+partition = 'learnlab'
 
 #begin = 'now+8hours'
 #begin = '19:00'
@@ -55,12 +55,10 @@ args3 = {}
 
 key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'decoder-input-dim', 'decoder-output-dim', 'decoder-layers')
 args3[key] = []
-#args3['decoder-layers'] = [15, 25]
-for layers in [15, 25]:
-    for model_dim in [768, 1024+512]:
+for layers in [10]:
+    for model_dim, ff_dim in zip([1024], [1024*8]):
         heads = 8*(model_dim//512)
-        for ff_dim in [768*8, (1024+512)*8]:
-            args3[key].append((model_dim, ff_dim, heads, model_dim, model_dim, layers))
+        args3[key].append((model_dim, ff_dim, heads, model_dim, model_dim, layers))
 
 args2['arch'] = 'transformer_lm_big'
 args2['weight-decay'] = 0.00
@@ -70,6 +68,7 @@ args2['fp16-no-flatten-grads'] = ''
 args2['min-loss-scale'] = 1e-10
 args2['fp16-scale-window'] = 250
 args2['clip-norm'] = 0.6
+args2['no-save'] = ''
 
 
 
@@ -81,16 +80,14 @@ args3['adam-eps'] = [1e-7] # baseline params
 args3[('max-tokens', 'update-freq', 'tokens-per-sample')] = []
 #args3[('max-tokens', 'update-freq', 'tokens-per-sample')].append((2048, 64//gpus, 512))
 args3[('max-tokens', 'update-freq', 'tokens-per-sample')].append((2048, 64//gpus, 1024))
-args3[('max-update', 'warmup-updates', '')] = [(16000, 2000, ' /private/home/timdettmers/data/cc_small')]
+args3[('max-update', 'warmup-updates', '')] = [(14000, 2000, ' /private/home/timdettmers/data/cc_small')]
 
 args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0)]
 
 
 key = ('lr', 'warmup-init-lr')
 args3[key] = []
-#args3[key].append((0.00163, 0.0))
-args3[key].append((0.00163*0.8, 0.0))
-args3[key].append((0.00163*1.5, 0.0))
+args3[key].append((0.00163*4.5, 0.0))
 args4 = []
 
 args5 = {}
