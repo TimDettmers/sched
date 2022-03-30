@@ -169,7 +169,6 @@ class HyakScheduler(object):
             for line in f:
                 name, value = line.split(' ')
                 self.config[name.strip()] = value.strip()
-            
 
     def update_host_config(self, name, mem_threshold, util_threshold):
         pass
