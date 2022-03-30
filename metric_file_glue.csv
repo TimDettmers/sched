@@ -1,18 +1,7 @@
 name,start_regex,end_regex,contains,smaller_is_better,agg,reference_metric_name,value
-#accuracy,"val.top1 :","% val.top5",,0,max,
-#accuracy,"Acc@1 mean:","\)\sAcc",5000,0,max
-#epoch,"Epoch: \[","\]\[",5000,0,max
-#epochs,"Epoch:","lr :",,0,last,
-#loss,loss,\| nll,| valid |,1,min,
+#mcorr,mcorr,\| wps,| valid |,0,max,
 accuracy,accuracy,"\| corr ",| valid |,0,max,
 gbfree,gb_free=, wall,,1,min
-#lastppl,ppl,\| wps,| valid |,1,last,
-#ppl,ppl,\| wps,| valid |,1,min,
-#trainppl,ppl=,", wps",,1,min,
-#BLEU4,"BLEU4 = ",", 6",,0,max,
-#BLEU,"0 = "," 5",,0,max,
-#accuracy,"\* Acc@1 ","Acc@5",,0,max,
-#accuracy,"Acc@5\s\d\.\d\s\(","\)$","5000/5004",0,max,
 corr,corr,\| wps,| valid |,0,max,
 mcorr,mcorr,\| wps,| valid |,0,max,
 #accuracy,accuracy,\| mcorr,| valid |,0,max,

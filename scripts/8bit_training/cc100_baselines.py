@@ -19,83 +19,73 @@ parser.add_argument('--p', type=float, default=1.0, help='Probability with which
 args = parser.parse_args()
 
 
-gpus = 8
-cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=fully_sharded --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 1 --distributed-port 12597 --distributed-world-size {0} --valid-subset valid'.format(gpus)
+gpus = 64
 
+cmd = 'fairseq-train /private/home/namangoyal/dataset/data-bin/bookwiki_CC-NEWS_openwebtext_stories_cc100-mmap2-bin   --distributed-world-size {0} --distributed-port 54187  --fp16  --memory-efficient-fp16   --num-workers 2   --criterion cross_entropy   --task language_modeling   --sample-break-mode none --log-interval 25   --tokens-per-sample 1024 --arch transformer_lm_big   --share-decoder-input-output-embed            --decoder-layers 10 --decoder-attention-heads 16 --dropout 0.0 --attention-dropout 0.0 --activation-dropout 0.0 --activation-fn relu    --no-epoch-checkpoints --keep-best-checkpoints 0  --keep-interval-updates 2 --keep-last-epochs 0 --save-interval-updates 1000 --log-format simple --fp16-no-flatten-grads --ignore-unused-valid-subsets'.format(gpus)
 args2 = {}
 
-name = 'grid_4day4'
-constraint = 'volta'
+name = 'butterfly1'
+constraint = 'volta32gb'
 
-logfolder = 'experimental/cc_small/{0}'.format(name)
+
+# 1024 tokens * 8 update_freq * 56250 steps = 0.4608e9 tokens -> optimal batch size 3460
+# model sizes: 1.92bn, 2.43bn, 1.41bn
+
+
+logfolder = '8bit_training/cc100/{0}'.format(name)
 ckp_name = logfolder
-cores_per_job = 10
-mem = 48*(8 if gpus > 8 else gpus)
+#time_hours = 24*2
+cores_per_job = 5
+mem = 56*(8 if gpus > 8 else gpus)
 num_seeds = 1
-seed_offset = 4
-time_hours = 12
+seed_offset = 5
+time_hours = 72
 time_minutes = 0
-
-begin = None
+#partition = 'learnlab,learnfair,scavenge'
 partition = 'learnlab'
-
-#begin = 'now+8hours'
-#begin = '19:00'
-#begin = '03:00'
-#partition = 'scavenge'
-
-change_dir = 'fairseq/'
-repo = 'fairseq'
+#partition = 'learnfair'
+#partition = 'uninterruptible'
+change_dir = 'fairseq_private'
+repo = 'fairseq_private'
 exclude = ''
 
 s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=partition, use_gres=False)
 
 fp16 = True
 args3 = {}
+args2['lr-scheduler'] =  'polynomial_decay'
+args2['warmup-updates'] = 2000
+args2['max-update'] = 56250
+args2['total-num-update'] = 56250
 
-key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'decoder-input-dim', 'decoder-output-dim', 'decoder-layers')
-args3[key] = []
-#args3['decoder-layers'] = [10, 20]
-for layers in [15]:
-    for model_dim, ff_dim in zip([1024], [1024*8]):
-        heads = 8*(model_dim//512)
-        args3[key].append((model_dim, ff_dim, heads, model_dim, model_dim, layers))
+#args2['lr-scheduler'] =  'cosine'
+#args2['warmup-updates'] = 3000
+#args2['max-update'] = 56250*4
 
-args2['arch'] = 'transformer_lm_big'
-args2['weight-decay'] = 0.00
-args2['validate-interval-updates'] = 1000
-args2['save-interval-updates'] = 1000
-args2['fp16-no-flatten-grads'] = ''
-args2['min-loss-scale'] = 1e-10
 args2['fp16-scale-window'] = 250
-args2['clip-norm'] = 0.6
-args2['no-save'] = ''
+args2['clip-norm'] = 0.4
 
-
-args2['lr-scheduler'] = 'cosine'
-args2['optimizer'] = 'adam'
-args3['adam-betas'] = ["'(0.9, 0.995)'"] # baseline params
-args3['adam-eps'] = [1e-7] # baseline params
-
-args3[('max-tokens', 'update-freq', 'tokens-per-sample')] = []
-#args3[('max-tokens', 'update-freq', 'tokens-per-sample')].append((2048, 128//gpus, 512))
-args3[('max-tokens', 'update-freq', 'tokens-per-sample')].append((2048, 128//gpus, 1024))
-args3[('max-update', 'warmup-updates', '')] = [(27000, 3000, ' /private/home/timdettmers/data/cc_small')]
-
-args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0)]
-
-
-key = ('lr', 'warmup-init-lr')
+key = ('max-tokens', 'decoder-embed-dim', 'decoder-ffn-embed-dim', 'update-freq', 'lr')
 args3[key] = []
-args3[key].append((0.00163*1.5, 0.0))
-args3[key].append((0.00163*2.0, 0.0))
-args3[key].append((0.00163*2.5, 0.0))
-args3[key].append((0.00163*3.0, 0.0))
-args3[key].append((0.00163*3.5, 0.0))
-args3[key].append((0.00163*4.0, 0.0))
-args3[key].append((0.00163*4.5, 0.0))
-args3[key].append((0.00163*5.0, 0.0))
-args3[key].append((0.00163*5.5, 0.0))
+
+
+# 32-bit baseline
+args3['optimizer'] = ['adam']
+#args3['use-bnb'] = [True]
+#args3['optim-bits'] = [8]
+#args3[('stable-emb', 'no-scale-embedding')] = [(True, True)]
+
+# 8-bit training
+#args3[('ff-block', 'attention-8bit', 'sparse-decomp')] = [('8bit', 'off', False), ('8bit', 'linear', True), ('8bit', 'linear', False), ('ff', 'off', False)]
+#args3[('ff-block', 'attention-8bit', 'sparse-decomp')] = [('8bit', 'off', False)]#, ('ff', 'off', False)]
+#args3[('ff-block', 'attention-8bit', 'sparse-decomp')] = [('8bit', 'linear', True), ('8bit', 'linear', False)]
+
+args3['ff-block'] = ['butterfly']
+args3['butterfly-block-size'] = [64]
+args3['butterfly-low-rank'] = [0.2]
+
+args3[key].append((2048,2048,2*8192,8*128//gpus, 0.00075))
+
 args4 = []
 
 args5 = {}
@@ -105,10 +95,7 @@ args6 = {}
 rdm = np.random.RandomState(5345)
 
 for key, value in args2.items():
-    if value == True:
-        cmd = cmd + ' --{0}'.format(key)
-    else:
-        cmd = cmd + ' --{0} {1}'.format(key, value)
+    cmd = cmd + ' --{0} {1}'.format(key, value)
 
 args_prod = []
 for key, values in args3.items():
@@ -153,12 +140,13 @@ for seed in range(num_seeds):
             job_cmd = cmd + arg4
             for val in values:
                 job_cmd += ' {0}' .format(val)
+            #job_cmd += ' --checkpoint /checkpoint/timdettmers/{1}/{0}/model.pt'.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
             if not fp16: job_cmd = job_cmd.replace('--fp16 ', ' ')
             job_cmd = job_cmd + ' --seed {0}'.format(seed)
             checkpoint_dir = '/checkpoint/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
             save_dir = ' --save-dir {0}'.format(checkpoint_dir)
             job_cmd = job_cmd + save_dir
-            cmds = ['source /private/home/timdettmers/.bashrc', 'source activate base2', job_cmd]
+            cmds = [job_cmd]
             if rdm.rand(1) <= args.p:
                 jobs.append(job_cmd)
                 s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
@@ -170,11 +158,10 @@ if args.dry:
     print('Total jobs', len(jobs))
     print('Time hours: {0}'.format(time_hours))
     print('GPUs: {0}'.format(gpus))
-    print('begin: {0}'.format(begin))
     print('Jobs will be written to: {0}'.format(join('/private/home/timdettmers/logs/', logfolder)))
     print('Jobs will be run on: {0}'.format(partition))
     print('Run in folder: {0}'.format(change_dir))
 
 if not args.dry:
-    s.run_jobs(begin=begin)
+    s.run_jobs()
 

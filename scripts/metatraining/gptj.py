@@ -19,75 +19,45 @@ parser.add_argument('--p', type=float, default=1.0, help='Probability with which
 args = parser.parse_args()
 
 
-gpus = 8
-cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=fully_sharded --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 1 --distributed-port 12597 --distributed-world-size {0} --valid-subset valid'.format(gpus)
+gpus = 128
+cmd = 'python train.py             --task cf-natural --k 16384 --test_k 16 --split dev --seed 100 --train_seed 1             --do_train --use_demonstrations --individual             --batch_size 8 --lr 1e-05 --fairscale --out_dir /checkpoint/timdettmers/GPT --clip-norm 0.1 --warmup_steps 3000 --distributed_world_size {0}'.format(gpus)
 
-args2 = {}
 
-name = '1day_baseline2'
-constraint = 'volta'
+name = 'test3'
+constraint = 'volta32gb'
 
-logfolder = 'experimental/cc_small/{0}'.format(name)
+logfolder = 'metatraining/gpt-large/{0}'.format(name)
 ckp_name = logfolder
 cores_per_job = 10
-mem = 48*(8 if gpus > 8 else gpus)
-num_seeds = 5
+mem = 64*(8 if gpus > 8 else gpus)
+num_seeds = 1
 seed_offset = 0
-time_hours = 6
+time_hours = 1
 time_minutes = 0
 
 begin = None
-partition = 'learnlab'
+#partition = 'learnlab,learnfair,scavenge'
+partition = 'learnlab,learnfair'
+#partition = 'devlab'
 
 #begin = 'now+8hours'
 #begin = '19:00'
 #begin = '03:00'
 #partition = 'scavenge'
 
-change_dir = 'fairseq/'
-repo = 'fairseq'
+change_dir = 'FewShotLearning/'
+repo = 'FewShotLearning'
 exclude = ''
 
 s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=partition, use_gres=False)
 
-fp16 = True
+args2 = {}
+
+#args2['gpt2'] = 'gpt2-large'
+args2['gpt2'] = 'gpt-j-6B'
+
 args3 = {}
 
-key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'decoder-input-dim', 'decoder-output-dim', 'decoder-layers')
-args3[key] = []
-for layers in [10]:
-    for model_dim, ff_dim in zip([1024], [1024*8]):
-        heads = 8*(model_dim//512)
-        args3[key].append((model_dim, ff_dim, heads, model_dim, model_dim, layers))
-
-args2['arch'] = 'transformer_lm_big'
-args2['weight-decay'] = 0.00
-args2['validate-interval-updates'] = 1000
-args2['save-interval-updates'] = 1000
-args2['fp16-no-flatten-grads'] = ''
-args2['min-loss-scale'] = 1e-10
-args2['fp16-scale-window'] = 250
-args2['clip-norm'] = 0.6
-args2['no-save'] = ''
-
-
-
-args2['lr-scheduler'] = 'cosine'
-args2['optimizer'] = 'adam'
-args3['adam-betas'] = ["'(0.9, 0.995)'"] # baseline params
-args3['adam-eps'] = [1e-7] # baseline params
-
-args3[('max-tokens', 'update-freq', 'tokens-per-sample')] = []
-#args3[('max-tokens', 'update-freq', 'tokens-per-sample')].append((2048, 64//gpus, 512))
-args3[('max-tokens', 'update-freq', 'tokens-per-sample')].append((2048, 64//gpus, 1024))
-args3[('max-update', 'warmup-updates', '')] = [(14000, 2000, ' /private/home/timdettmers/data/cc_small')]
-
-args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0)]
-
-
-key = ('lr', 'warmup-init-lr')
-args3[key] = []
-args3[key].append((0.00163*4.5, 0.0))
 args4 = []
 
 args5 = {}
@@ -137,6 +107,7 @@ else:
 
 jobs = []
 if len(args4) == 0: args4.append('')
+assert num_seeds == 1
 for seed in range(num_seeds):
     seed = seed + seed_offset
     for arg4 in args4:
@@ -145,15 +116,13 @@ for seed in range(num_seeds):
             job_cmd = cmd + arg4
             for val in values:
                 job_cmd += ' {0}' .format(val)
-            if not fp16: job_cmd = job_cmd.replace('--fp16 ', ' ')
-            job_cmd = job_cmd + ' --seed {0}'.format(seed)
-            checkpoint_dir = '/checkpoint/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
-            save_dir = ' --save-dir {0}'.format(checkpoint_dir)
+            #job_cmd = job_cmd + ' --seed {0}'.format(seed)
+            checkpoint_dir = '/checkpoint/timdettmers/GPT/{1}_{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
+            save_dir = ' --out_dir {0}'.format(checkpoint_dir)
             job_cmd = job_cmd + save_dir
-            cmds = ['source /private/home/timdettmers/.bashrc', 'source activate base2', job_cmd]
-            if rdm.rand(1) <= args.p:
-                jobs.append(job_cmd)
-                s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
+            cmds = [job_cmd]
+            jobs.append(job_cmd)
+            s.add_job(logfolder, repo, change_dir, cmds, time_hours, True, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
 
 if args.dry:
     for i, job in enumerate(jobs):
