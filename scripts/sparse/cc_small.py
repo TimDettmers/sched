@@ -29,7 +29,7 @@ constraint = 'volta'
 
 logfolder = 'sparse/cc_small/{0}'.format(name)
 ckp_name = logfolder
-cores_per_job = 1*(gpus if gpus < 10 else 10)
+cpu_per_task = 1*(gpus if gpus < 10 else 10)
 mem = 12*(8 if gpus > 8 else gpus)
 num_seeds = 1
 seed_offset = 0
@@ -177,7 +177,7 @@ for seed in range(num_seeds):
                                 cmds = [job_cmd5]
                                 if rdm.rand(1) <= args.p:
                                     jobs.append(job_cmd5)
-                                    s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
+                                    s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cpu_per_task, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
             else:
                 job_cmd = job_cmd + ' --seed {0}'.format(seed)
                 checkpoint_dir = '/checkpoint/timdettmers/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name)
@@ -186,7 +186,7 @@ for seed in range(num_seeds):
                 cmds = [job_cmd]
                 if rdm.rand(1) <= args.p:
                     jobs.append(job_cmd)
-                    s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
+                    s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cpu_per_task, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
 
 if args.dry:
     for i, job in enumerate(jobs):

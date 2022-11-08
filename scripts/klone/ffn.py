@@ -15,22 +15,23 @@ from os.path import join
 parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
+parser.add_argument('--skip', type=int, default=0)
 parser.add_argument('--p', type=float, default=1.0, help='Probability with which to select a configuration.')
 args = parser.parse_args()
 
 
-gpus = 8
-cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=fully_sharded --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 1 --distributed-port 12597 --distributed-world-size {0} --valid-subset valid'.format(gpus)
+gpus = 16
+cmd = 'fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=no_c10d --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 1 --distributed-port 12597 --distributed-world-size {0} --valid-subset valid'.format(gpus)
 
 args2 = {}
 
-name = 'baseline_8bit1'
-constraint = '"[rtx6k|a40|2080ti]"'
+name = 'ffn_test5'
+constraint = '"[rtx6k|a40|2080ti|a100]"'
 
 logfolder = 'experimental/cc_small/{0}'.format(name)
 ckp_name = logfolder
-cores_per_job = 5
-mem = 48*(8 if gpus > 8 else gpus)
+cpus_per_task = 2
+mem = 32*(8 if gpus > 8 else gpus)
 num_seeds = 1
 seed_offset = 4
 time_hours = 12
@@ -38,17 +39,19 @@ time_minutes = 0
 
 begin = None
 partition = 'ckpt'
+#account = 'stf'
+account = 'zlab'
 
 #begin = 'now+8hours'
 #begin = '19:00'
 #begin = '03:00'
 #partition = 'scavenge'
 
-change_dir = 'fairseq/'
-repo = 'fairseq'
+change_dir = 'fairseq_private/'
+repo = 'fairseq_private'
 exclude = ''
 
-s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='stf', partition=partition, use_gres=False)
+s = gpuscheduler.HyakScheduler(verbose=args.verbose, account=account, partition=partition, use_gres=False)
 
 checkpoint_base_dir = '/gscratch/scrubbed/timdettmers'
 
@@ -72,10 +75,6 @@ args2['min-loss-scale'] = 1e-10
 args2['fp16-scale-window'] = 250
 args2['clip-norm'] = 0.6
 args3['decoder-layers'] = [10]
-#args2['no-scale-embedding'] = ''
-args2['no-save'] = ''
-#args2['adambits'] = 8
-#args2['stable-emb'] = ''
 
 
 args2['lr-scheduler'] = 'cosine'
@@ -88,6 +87,13 @@ args3[('max-tokens', 'update-freq', 'tokens-per-sample')].append((2048, 128//gpu
 args3[('max-update', 'warmup-updates', '')] = [(16000, 3000, ' /gscratch/cse/data/cc_small')]
 
 args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0)]
+
+args3['ff-block'] = ['multi']
+args3['adapter-size'] = [32]
+args3['use-attn-adapters'] = [True, False]
+args2['no-scale-embedding'] = ''
+args2['stable-emb'] = ''
+
 
 
 key = ('lr', 'warmup-init-lr')
@@ -147,6 +153,7 @@ for seed in range(num_seeds):
     for arg4 in args4:
         if len(args_prod) == 0: args_prod.append(('', ''))
         for i, values in enumerate(args_prod):
+            if i < args.skip: continue
             job_cmd = cmd + arg4
             for val in values:
                 job_cmd += ' {0}' .format(val)
@@ -159,7 +166,7 @@ for seed in range(num_seeds):
             cmds = [job_cmd]
             if rdm.rand(1) <= args.p:
                 jobs.append(job_cmd)
-                s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
+                s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cpus_per_task, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
 
 if args.dry:
     for i, job in enumerate(jobs):
@@ -170,7 +177,7 @@ if args.dry:
     print('GPUs: {0}'.format(gpus))
     print('begin: {0}'.format(begin))
     print('Jobs will be written to: {0}'.format(join(s.config['LOG_HOME'], logfolder)))
-    print('Jobs will be run on: {0}'.format(partition))
+    print('Jobs will be run on: {1} {0}'.format(partition, account))
     print('Run in folder: {0}'.format(change_dir))
 
 if not args.dry:

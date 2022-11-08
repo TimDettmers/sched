@@ -1,0 +1,3 @@
+name,start_regex,end_regex,contains,smaller_is_better,agg,reference_metric_name,value,func
+acc,acc\":,,,0,mean,,
+ppl,word_perplexity\":,,,1,mean,,

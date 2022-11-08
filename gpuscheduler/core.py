@@ -192,9 +192,12 @@ class HyakScheduler(object):
         array_file = join(self.config['SCRIPT_HISTORY'], 'array_init_{0}.sh'.format(array_id))
         array_job_list = join(self.config['SCRIPT_HISTORY'], 'array_jobs_{0}.sh'.format(array_id))
         script_list = []
+        print('processing cmds...')
         for i, (path, work_dir, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
+            if i % 10 == 0 and i > 0: print('Processing cmd no ', i)
             nodes = gpus // 8
             nodes += 1 if (gpus % 8) > 0 else 0
+            if nodes == 0: nodes = 1
             gpus = 8 if gpus > 8 else gpus
             if not isinstance(cmds, list): cmds = [cmds]
             lines = []
@@ -212,15 +215,16 @@ class HyakScheduler(object):
             lines.append('#SBATCH --nodes={0}'.format(nodes))
             if single_process:
                 lines.append('#SBATCH --ntasks-per-node=1')
-                lines.append('#SBATCH --cpus-per-task={0}'.format(cores*gpus))
+                lines.append('#SBATCH --cpus-per-task={0}'.format(cores*(gpus if gpus != 0 else 1)))
             else:
-                lines.append('#SBATCH --ntasks-per-node={0}'.format(gpus))
+                lines.append('#SBATCH --ntasks-per-node={0}'.format(gpus if gpus != 0 else 1))
                 lines.append('#SBATCH --cpus-per-task={0}'.format(cores))
             lines.append('#SBATCH --time={0:02d}:{1:02}:00'.format(time_hours, time_minutes))
-            if self.use_gres:
-                lines.append('#SBATCH --gres=gpu:{0}'.format(gpus))
-            else:
-                lines.append('#SBATCH --gpus-per-node={0}'.format(gpus))
+            if gpus > 0:
+                if self.use_gres:
+                    lines.append('#SBATCH --gres=gpu:{0}'.format(gpus))
+                else:
+                    lines.append('#SBATCH --gpus-per-node={0}'.format(gpus))
             lines.append('#SBATCH --mem={0}G'.format(mem))
             lines.append('#SBATCH --requeue')
             if len(constraint) > 0:
@@ -271,6 +275,7 @@ class HyakScheduler(object):
                     print(err)
 
         if as_array:
+            print('creating array...')
             array_lines = []
             array_lines.append('')
             array_lines.append('')

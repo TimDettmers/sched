@@ -15,84 +15,98 @@ from os.path import join
 parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
+parser.add_argument('--skip', type=int, default=0)
 parser.add_argument('--p', type=float, default=1.0, help='Probability with which to select a configuration.')
 args = parser.parse_args()
 
 
-gpus = 8
-cmd = 'MKL_THREADING_LAYER=GNU OMP_NUM_THREADS=1 fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --ddp-backend=fully_sharded --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 1 --distributed-port 12597 --distributed-world-size {0} --valid-subset valid'.format(gpus)
+gpus = 4
+#memory, constraint = 21, '"[rtx6k|a40]"'
+#memory, constraint = 21, '"[rtx6k|a40]"'
+#memory, constraint = 21, '"[rtx6k]"'
+#memory, constraint = 70, '"[a100]"'
+memory, constraint = 38, '"[a40]"'
+#memory, constraint = 10, '"[2080ti]"'
 
-args2 = {}
+cmd = f'python ~/git/forked/lm-evaluation-harness/main.py --model gpt2 --use_accelerate --max_memory_per_gpu {memory}GB --no_cache --skip_tokenizer'
 
-name = 'baseline_8bit1'
-constraint = '"[rtx6k|a40|2080ti]"'
+name = 'quant1'
 
-logfolder = 'experimental/cc_small/{0}'.format(name)
+logfolder = 'quant_scale/opt/{0}'.format(name)
 ckp_name = logfolder
-cores_per_job = 5
-mem = 48*(8 if gpus > 8 else gpus)
+cpus_per_task = 2
+mem = ((1*memory)*(8 if gpus > 8 else gpus))+20
 num_seeds = 1
 seed_offset = 4
-time_hours = 12
+time_hours = 2
 time_minutes = 0
 
 begin = None
 partition = 'ckpt'
+account = 'stf'
+#account = 'zlab'
 
 #begin = 'now+8hours'
 #begin = '19:00'
 #begin = '03:00'
 #partition = 'scavenge'
 
-change_dir = 'fairseq/'
-repo = 'fairseq'
+change_dir = 'forked/lm-evaluation-harness/'
+repo = 'forked/lm-evaluation-harness'
 exclude = ''
 
-s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='stf', partition=partition, use_gres=False)
+s = gpuscheduler.HyakScheduler(verbose=args.verbose, account=account, partition=partition, use_gres=False)
 
 checkpoint_base_dir = '/gscratch/scrubbed/timdettmers'
 
 fp16 = True
+
+
+args2 = {}
+args2['limit'] = 400
+
 args3 = {}
 
-key = ('decoder-embed-dim', 'decoder-ffn-embed-dim', 'decoder-attention-heads', 'decoder-input-dim', 'decoder-output-dim')
-args3[key] = []
-args3[key] = []
-for model_dim in [1024]:
-    heads = 8*(model_dim//512)
-    for ff_dim in [8192]:
-        args3[key].append((model_dim, ff_dim, heads, model_dim, model_dim))
+args3['tasks'] = ['pile_pile-cc,winogrande,piqa,hellaswag,lambada']
 
-args2['arch'] = 'transformer_lm_big'
-args2['weight-decay'] = 0.00
-args2['validate-interval-updates'] = 1000
-args2['save-interval-updates'] = 1000
-args2['fp16-no-flatten-grads'] = ''
-args2['min-loss-scale'] = 1e-10
-args2['fp16-scale-window'] = 250
-args2['clip-norm'] = 0.6
-args3['decoder-layers'] = [10]
-#args2['no-scale-embedding'] = ''
-args2['no-save'] = ''
-#args2['adambits'] = 8
-#args2['stable-emb'] = ''
+model_str = 'pretrained=facebook/opt-{}'
+#args3['model_args'] = [model_str.format('125m'), model_str.format('350m'), model_str.format('1.3b'), model_str.format('2.7b')] # 1 2080ti
+#args3['model_args'] = [model_str.format('6.7b')] # 1 rtx 6k
+#args3['model_args'] = [model_str.format('13b')] # 2 rtx6k
+#args3['model_args'] = [model_str.format('30b')] # 2 a40 or 4 rtx6k
+args3['model_args'] = [model_str.format('66b')] # 4 a40 or 7 rtx6k
+#bits = [8, 7, 6, 5, 4, 3, 2]
+bits = [8, 6, 4, 2]
+
+# blockwise methods
+args3[('total_bits', 'ebits')] = list(zip(bits, [3, 3, 3, 1]))
+args3['blocksize'] = [4096, 2048, 1024, 512]
+args3['method'] = ['blockwise_linear', 'blockwise_dynamic', 'blockwise_quantile', 'blockwise_fp8']
 
 
-args2['lr-scheduler'] = 'cosine'
-args2['optimizer'] = 'adam'
-args3['adam-betas'] = ["'(0.9, 0.995)'"] # baseline params
-args3['adam-eps'] = [1e-7] # baseline params
+# non-blockwise and variable methods
+#key = ('total_bits', 'ffn_bits', 'attn_bits')
+#args3[key] = []
+#for b in bits:
+#    args3[key].append((b, b-1, b-1))
+#    args3[key].append((b, b, b))
+#args3['offset'] = ['mean', 'median']
+##args3['offset'] = [False, 'mean', 'median']
+#args3[('method', 'metric')] = [('linear', 'std'), ('error', 'relerr')]
+#args3['ensure_total_bits'] = [True]
 
-args3[('max-tokens', 'update-freq', 'tokens-per-sample')] = []
-args3[('max-tokens', 'update-freq', 'tokens-per-sample')].append((2048, 128//gpus, 512))
-args3[('max-update', 'warmup-updates', '')] = [(16000, 3000, ' /gscratch/cse/data/cc_small')]
 
-args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0)]
+# old
 
+#args3['ffn_bits'] = [8]
+#args3['attn_bits'] = [8]
 
-key = ('lr', 'warmup-init-lr')
-args3[key] = []
-args3[key].append((0.00163, 0.0))
+#key = ('method', 'ebits', 'total_bits')
+#args3[key] = []
+#for b in bits:
+#    for i in range(1, b):
+#        args3[key].append(('blockwise_fp8', i, b))
+
 args4 = []
 
 args5 = {}
@@ -147,19 +161,20 @@ for seed in range(num_seeds):
     for arg4 in args4:
         if len(args_prod) == 0: args_prod.append(('', ''))
         for i, values in enumerate(args_prod):
+            if i < args.skip: continue
             job_cmd = cmd + arg4
             for val in values:
                 job_cmd += ' {0}' .format(val)
             if not fp16: job_cmd = job_cmd.replace('--fp16 ', ' ')
-            job_cmd = job_cmd + ' --seed {0}'.format(seed)
+            #job_cmd = job_cmd + ' --seed {0}'.format(seed)
             checkpoint_dir = '{2}/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name, checkpoint_base_dir)
             save_dir = ' --save-dir {0}'.format(checkpoint_dir)
-            job_cmd = job_cmd + save_dir
+            #job_cmd = job_cmd + save_dir
             #cmds = ['source /private/home/timdettmers/.bashrc', 'source activate base2', job_cmd]
             cmds = [job_cmd]
             if rdm.rand(1) <= args.p:
                 jobs.append(job_cmd)
-                s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
+                s.add_job(logfolder, repo, change_dir, cmds, time_hours, fp16, cores=cpus_per_task, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
 
 if args.dry:
     for i, job in enumerate(jobs):
@@ -168,11 +183,12 @@ if args.dry:
     print('Total jobs', len(jobs))
     print('Time hours: {0}'.format(time_hours))
     print('GPUs: {0}'.format(gpus))
+    print('Memory: {0}'.format(mem))
     print('begin: {0}'.format(begin))
     print('Jobs will be written to: {0}'.format(join(s.config['LOG_HOME'], logfolder)))
-    print('Jobs will be run on: {0}'.format(partition))
+    print('Jobs will be run on: {1} {0}'.format(partition, account))
     print('Run in folder: {0}'.format(change_dir))
 
 if not args.dry:
-    s.run_jobs(begin=begin)
+    s.run_jobs(begin=begin, single_process=True)
 

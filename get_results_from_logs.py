@@ -81,6 +81,7 @@ def clean_string(key):
     key = key.replace('[', '')
     key = key.replace('(', '')
     key = key.replace(')', '')
+    key = key.replace('=', '')
     return key
 
 configs = []
@@ -111,6 +112,10 @@ for folder in folders:
 
                 for metric in metrics:
                     contains = metric['contains']
+                    #if 'word_perp' in line:
+                    #    print(line)
+                    #    print(regex)
+                    #print(contains)
                     if contains != '' and not contains in line: continue
                     regex = metric['regex']
                     name = metric['name']
@@ -125,6 +130,8 @@ for folder in folders:
                             val = matches[0].strip()
                             if ',' in val: val = val.replace(',', '')
                             val = float(val)
+                            if math.isnan(val) or math.isinf(val):
+                                val = 1e6
                             if func != '':
                                 val = eval(func)(val)
                             config['METRICS'][name].append(val)
@@ -172,7 +179,8 @@ for config in configs:
         x = np.array(config['METRICS'][name])
         if x.size == 0 and metric['agg'] != 'stop': continue
         #if x.size == 0: continue
-        if metric['agg'] == 'last': x = x[-1]
+        if x.size == 1: x = x[0]
+        elif metric['agg'] == 'last': x = x[-1]
         elif metric['agg'] == 'mean': x = np.mean(x)
         elif metric['agg'] == 'min': x = np.nanmin(x)
         elif metric['agg'] == 'max': x = np.nanmax(x)
@@ -299,7 +307,8 @@ output['logfiles']= df.groupby(by=args.groupby)['NAME'].transform(lambda x: ' '.
 
 for metric in metrics:
     name = metric['name']
-    df[name] = df[name].astype(np.float32)
+    values = df[name].squeeze().astype(np.float32)
+    df[name] = values
     if args.median:
         output[name] = df.groupby(by=args.groupby)[name].median().to_frame(name).reset_index()[name]
         se95 = df.groupby(by=args.groupby)[name].sem().to_frame(name).reset_index()

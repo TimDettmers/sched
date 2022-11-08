@@ -1,2 +1,2 @@
 #!/bin/bash
-squeue -t pd -S+p -O "jobid,username,partition,gres,cpus-per-task,minmemory,gres,reason,TimeLimit" | grep gpu:
+squeue -t pd -S+p -O "jobid,username,partition,gres,cpus-per-task,minmemory,gres,reason,TimeLimit" | grep ckpt
