@@ -17,6 +17,7 @@ parser.add_argument('--print', action='store_true', help='Prints the dataframe b
 parser.add_argument('--category', type=str, default='', help='Plot all different values for a category into one plot.')
 parser.add_argument('--title', type=str, default='', help='Title of the plot.')
 parser.add_argument('--namey', type=str, default=None, help='Name of the y-axis')
+parser.add_argument('--namex', type=str, default=None, help='Name of the x-axis')
 parser.add_argument('--categoricalx', action='store_true', help='Treat x variable as categorical')
 parser.add_argument('--median', action='store_true', help='Use median for plotting y-values instead of mean.')
 parser.add_argument('--ci', action='store_true', help='Plot confidence intervals through the value column')
@@ -39,6 +40,7 @@ print(args)
 #args.ploty = 'Value' if args.ci else args.ploty
 #args.ploty = 'Value' if args.swarm else args.ploty
 args.namey = args.ploty if args.namey is None else args.namey
+args.namex = args.plotx if args.namex is None else args.namex
 
 if args.out == '': args.out = args.csv.replace('csv','png')
 if not os.path.exists(os.path.dirname(args.out)):
@@ -113,7 +115,7 @@ if args.ylim is not None:
     plt.ylim(*args.ylim)
 
 plt.ylabel(args.namey, fontsize=13*args.fontscale)
-plt.xlabel(args.plotx, fontsize=13*args.fontscale)
+plt.xlabel(args.namex, fontsize=13*args.fontscale)
 ax._legend.set_title(args.category)
 
 #ax.set_yticklabels(size=args.fontsize-7)
