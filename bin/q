@@ -9,7 +9,7 @@ fi
 
 if [ -z $2 ]
 then
-  user=timdettmers
+  user=dettmers
 else
   user=$2
 fi
@@ -17,5 +17,5 @@ fi
 query_date=$(date --date="-$days_back day" -I)
 
 
-#sacct -X --format="Elapsed,Jobid%18,State,Account,Partition,Reason,NodeList%30,jobname%100" -S $query_date -u $user
-sacct -X --format="Elapsed,Jobid%18,State,Account,Partition,Reason,NodeList%30" -S $query_date 
+sacct -X --format="Elapsed,Jobid%18,State,Account,Partition,Reason,NodeList%30" -S $query_date -u $user
+#sacct -X --format="Elapsed,Jobid%18,State,Account,Partition,Reason,NodeList%30" -S $query_date 

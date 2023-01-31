@@ -20,31 +20,35 @@ parser.add_argument('--p', type=float, default=1.0, help='Probability with which
 args = parser.parse_args()
 
 
-gpus = 4
-#memory, constraint = 21, '"[rtx6k|a40]"'
+gpus = 7
+#memory, constraint = 10, '"[2080ti]"'
 #memory, constraint = 21, '"[rtx6k|a40]"'
 #memory, constraint = 21, '"[rtx6k]"'
-#memory, constraint = 70, '"[a100]"'
-memory, constraint = 38, '"[a40]"'
-#memory, constraint = 10, '"[2080ti]"'
+memory, constraint = 70, '"[a100]"'
+#memory, constraint = 38, '"[a40]"'
+#memory, constraint = 38, '"[a40|a100]"'
+#memory, constraint = 21, '"[rtx6k|a40|a100]"'
+#memory, constraint = 10, '"[2080ti|rtx6k|titan]"'
+#memory, constraint = 10, '"[2080ti|rtx6k|titan|a40]"'
+#memory, constraint = 10, '"[2080ti|rtx6k|titan|a40|a100]"'
 
 cmd = f'python ~/git/forked/lm-evaluation-harness/main.py --model gpt2 --use_accelerate --max_memory_per_gpu {memory}GB --no_cache --skip_tokenizer'
 
-name = 'quant1'
+name = '175b_400'
 
-logfolder = 'quant_scale/opt/{0}'.format(name)
+logfolder = 'quant_scale3/bloom/{0}'.format(name)
 ckp_name = logfolder
 cpus_per_task = 2
 mem = ((1*memory)*(8 if gpus > 8 else gpus))+20
 num_seeds = 1
 seed_offset = 4
-time_hours = 2
+time_hours = 4
 time_minutes = 0
 
 begin = None
 partition = 'ckpt'
-account = 'stf'
-#account = 'zlab'
+#account = 'stf'
+account = 'zlab'
 
 #begin = 'now+8hours'
 #begin = '19:00'
@@ -63,35 +67,132 @@ fp16 = True
 
 
 args2 = {}
+#args2['limit'] = 400
 args2['limit'] = 400
 
 args3 = {}
+#args3['limit'] = [400, 500, 600, 700, 800]
+#args2['total_bits'] = 16
 
-args3['tasks'] = ['pile_pile-cc,winogrande,piqa,hellaswag,lambada']
 
-model_str = 'pretrained=facebook/opt-{}'
+#args3['tasks'] = ['winogrande,piqa,hellaswag,lambada']
+#args3['tasks'] = ['winogrande,piqa,hellaswag,lambada,pile_pile-cc,wikitext']
+args3['tasks'] = ['winogrande,piqa,hellaswag,lambada,pile_pile-cc']
+#args3['tasks'] = ['winogrande,piqa,hellaswag,lambada']
+#args3['tasks'] = ['pile_pile-cc']
+
+hdims = [768, 1024, 2048, 2560, 4096, 5120, 7168, 9216]
+
+for d in hdims:
+    match = False
+    for div in [1024]:
+        if d % div == 0:
+            match = True
+            print(d, div)
+    if not match:
+        print('no match', d)
+#ms = 'pretrained=gpt2{}'
+#args3['model_args'] = [ms.format(''), ms.format('-medium'), ms.format('-large'), ms.format('-xl')] # 1 rtx6k or 2080 ti
+
+#ms = 'pretrained=bigscience/bloom-{}'
+args2['use_fast_tok'] = True
+##args3['model_args'] = [ms.format('560m'), ms.format('1b1'), ms.format('1b7'), ms.format('3b')] # 1 2080 Ti
+#args3['model_args'] = [ms.format('7b1')] # 1 rtx6k
+args3['model_args'] = ['pretrained=bigscience/bloom'] # 6 A100
+#args3['model_args'] = [ms.format('560m'), ms.format('1b1'), ms.format('1b7'), ms.format('3b'), ms.format('7b1')] # 1 rtx6k
+
+#ms = 'pretrained=bigscience/bloomz-{}'
+#args2['use_fast_tok'] = True
+##args3['model_args'] = [ms.format('560m'), ms.format('1b1'), ms.format('1b7'), ms.format('3b')] # 1 2080 Ti
+##args3['model_args'] = [ms.format('7b1')] # 1 rtx6k
+#args3['model_args'] = [ms.format('560m'), ms.format('1b1'), ms.format('1b7'), ms.format('3b'), ms.format('7b1')] # 1 rtx6k
+
+
+#ms = 'pretrained=EleutherAI/pythia-{}-deduped'
+#args2['use_fast_tok'] = True
+#args3['model_args'] = [ms.format('19m'), ms.format('125m'), ms.format('350m'), ms.format('1.3b')] # 1 2080 Ti
+#args3['model_args'] = [ms.format('6.7b')] # 1 rtx6k
+#args3['model_args'] = [ms.format('19m'), ms.format('125m'), ms.format('350m'), ms.format('1.3b'), ms.format('6.7b')] # 1 rtx6k
+#args3['model_args'] = [ms.format('13b')]
+#args3['model_args'] = [ms.format('13b'), 'pretrained=EleutherAI/gpt-neox-20b'] # 2 a40
+#args3['model_args'] = [ms.format('6.7b'), ms.format('13b'), 'pretrained=EleutherAI/gpt-neox-20b'] # 2 a40
+
+
+#model_str = 'pretrained=facebook/opt-{}'
+#model_str = 'pretrained=/gscratch/scrubbed/timdettmers/models/hf_checkpoint/'
+#args3['model_args'] = [model_str]
 #args3['model_args'] = [model_str.format('125m'), model_str.format('350m'), model_str.format('1.3b'), model_str.format('2.7b')] # 1 2080ti
 #args3['model_args'] = [model_str.format('6.7b')] # 1 rtx 6k
-#args3['model_args'] = [model_str.format('13b')] # 2 rtx6k
-#args3['model_args'] = [model_str.format('30b')] # 2 a40 or 4 rtx6k
-args3['model_args'] = [model_str.format('66b')] # 4 a40 or 7 rtx6k
-#bits = [8, 7, 6, 5, 4, 3, 2]
-bits = [8, 6, 4, 2]
+#args3['model_args'] = [model_str.format('13b')] # 2 rtx6k or 1 a40
+#args3['model_args'] = [model_str.format('30b')] # 2 a40 or 4 rtx6k or 1 A100
+#args3['model_args'] = [model_str.format('66b')] # 4 a40 or 7 rtx6k or 2 A100
+#bits = [8, 6, 4]
+#bits = [3, 4]
+#bits = [7]
 
+#bits = [8, 7, 6, 5, 4, 3]
+#args3['total_bits'] = bits
+
+#key = ('ffn_bits', 'attn_bits')
+#args3[key] = []
+#args3[key].append((4, 5))
+#args3[key].append((4, 6))
+#args3[key].append((5, 4))
+#args3[key].append((5, 6))
+#args3[key].append((6, 4))
+#args3[key].append((6, 5))
+
+#args3[('total_bits', 'ebits')] = list(zip(bits, [2, 3]))
 # blockwise methods
-args3[('total_bits', 'ebits')] = list(zip(bits, [3, 3, 3, 1]))
-args3['blocksize'] = [4096, 2048, 1024, 512]
+#args3[('total_bits', 'ebits')] = list(zip(bits, [3]))
+#args3['blocksize'] = [2048, 1024, 512]
+
+# BASE
+#bits = [8, 7, 6, 5, 4, 3]
+#args3[('total_bits', 'ebits')] = list(zip(bits, [3, 3, 3, 3, 2, 1]))
+#args3['blocksize'] = [512, 1024]
+#args3['method'] = ['blockwise_linear', 'blockwise_dynamic', 'blockwise_quantile', 'blockwise_fp8']
+
+# 175b
+#bits = [8, 4, 3]
+#args3[('total_bits', 'ebits')] = list(zip(bits, [3, 3, 2]))
+#bits = [7, 6, 5]
+#args3[('total_bits', 'ebits')] = list(zip(bits, [3, 3, 3]))
+
+bits = [8, 7, 6, 5, 4, 3]
+args3[('total_bits', 'ebits')] = list(zip(bits, [3, 3, 3, 3, 3, 2]))
+args3['blocksize'] = [64]
 args3['method'] = ['blockwise_linear', 'blockwise_dynamic', 'blockwise_quantile', 'blockwise_fp8']
 
+# BASE 3,4
+#bits = [4]
+#args3[('total_bits', 'ebits')] = list(zip(bits, [3]))
+#args3['blocksize'] = [64]
+#args3['method'] = ['blockwise_linear', 'blockwise_dynamic', 'blockwise_quantile', 'blockwise_fp8']
+##args3['method'] = ['blockwise_quantile']
+#args3['outliers'] = [True, False]
+
+#bits = [3]
+#args3[('total_bits', 'ebits')] = list(zip(bits, [2]))
+#args3['blocksize'] = [4096, 1024, 256, 64]
+#args3['method'] = ['blockwise_fp8']
+#args3['outliers'] = [True]
+
+#args3['method'] = ['blockwise_linear', 'blockwise_dynamic', 'blockwise_quantile', 'blockwise_fp8']
+#args3['offset'] = ['mean', 'median', False]
+#args3['offset'] = ['mean']
 
 # non-blockwise and variable methods
 #key = ('total_bits', 'ffn_bits', 'attn_bits')
 #args3[key] = []
 #for b in bits:
 #    args3[key].append((b, b-1, b-1))
-#    args3[key].append((b, b, b))
-#args3['offset'] = ['mean', 'median']
-##args3['offset'] = [False, 'mean', 'median']
+#    #args3[key].append((b, b, b))
+#args3['offset'] = [False, 'mean', 'median']
+#
+#args3['method'] = ['iterative', 'iterative_block']
+#args3['blocksize'] = [1024]
+
 #args3[('method', 'metric')] = [('linear', 'std'), ('error', 'relerr')]
 #args3['ensure_total_bits'] = [True]
 
@@ -100,12 +201,17 @@ args3['method'] = ['blockwise_linear', 'blockwise_dynamic', 'blockwise_quantile'
 
 #args3['ffn_bits'] = [8]
 #args3['attn_bits'] = [8]
-
-#key = ('method', 'ebits', 'total_bits')
+#args3['blocksize'] = [64]
+#bits = [8, 7, 6, 5, 4, 3]
+#args3['method'] = ['blockwise_fp8']
+#key = ('ebits', 'total_bits')
 #args3[key] = []
 #for b in bits:
 #    for i in range(1, b):
-#        args3[key].append(('blockwise_fp8', i, b))
+#        args3[key].append((i, b))
+
+
+
 
 args4 = []
 
@@ -178,7 +284,7 @@ for seed in range(num_seeds):
 
 if args.dry:
     for i, job in enumerate(jobs):
-        print(i, job)
+        print(i+args.skip, job)
     print('')
     print('Total jobs', len(jobs))
     print('Time hours: {0}'.format(time_hours))

@@ -180,7 +180,7 @@ class HyakScheduler(object):
         if self.verbose:
             print('#SBATCH --time={0:02d}:{1:02d}:00'.format(time_hours, time_minutes))
 
-    def run_jobs(self, as_array=True, sleep_delay_seconds=0, single_process=False, log_id=None, skip_cmds=0, comment=None, begin=None):
+    def run_jobs(self, as_array=True, sleep_delay_seconds=0, single_process=False, log_id=None, skip_cmds=0, comment=None, begin=None, gpus_per_node=8, requeue=False, requeue_length_hours=4):
 
         array_preamble = []
 
@@ -193,12 +193,14 @@ class HyakScheduler(object):
         array_job_list = join(self.config['SCRIPT_HISTORY'], 'array_jobs_{0}.sh'.format(array_id))
         script_list = []
         print('processing cmds...')
+        file_contents = ''
         for i, (path, work_dir, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
-            if i % 10 == 0 and i > 0: print('Processing cmd no ', i)
-            nodes = gpus // 8
-            nodes += 1 if (gpus % 8) > 0 else 0
+            if not as_array:
+                if i % 10 == 0 and i > 0: print('Processing cmd no ', i)
+            nodes = gpus // gpus_per_node
+            nodes += 1 if (gpus % gpus_per_node) > 0 else 0
             if nodes == 0: nodes = 1
-            gpus = 8 if gpus > 8 else gpus
+            gpus = gpus_per_node if gpus > gpus_per_node else gpus
             if not isinstance(cmds, list): cmds = [cmds]
             lines = []
             script_file = join(self.config['SCRIPT_HISTORY'], 'init_{0}_{1}.sh'.format(array_id, i))
@@ -226,7 +228,6 @@ class HyakScheduler(object):
                 else:
                     lines.append('#SBATCH --gpus-per-node={0}'.format(gpus))
             lines.append('#SBATCH --mem={0}G'.format(mem))
-            lines.append('#SBATCH --requeue')
             if len(constraint) > 0:
                 lines.append('#SBATCH --constraint={0}'.format(constraint))
             if exclude != '':
@@ -244,11 +245,10 @@ class HyakScheduler(object):
             lines.append('')
             lines.append('export PATH=$PATH:{0}'.format(join(self.config['ANACONDA_HOME'], 'bin')))
             for cmd_no, cmd in enumerate(cmds[skip_cmds:]):
-                lines.append('echo "cmd{0}"'.format(cmd))
                 lines.append(cmd)
 
             if len(array_preamble) == 0:
-                array_preamble = copy.deepcopy(lines[:-(2*len(cmds[skip_cmds:]) + 1)])
+                array_preamble = copy.deepcopy(lines[:-(1*len(cmds[skip_cmds:]) + 1)])
                 array_preamble[2] = '#SBATCH --job-name={0}'.format(array_job_list)
                 array_preamble[-3] = '#SBATCH --output={0}'.format(join(log_path, array_id + '_%a.log'))
                 array_preamble[-2] = '#SBATCH --error={0}'.format(join(log_path, array_id + '_%a.err'))
@@ -264,15 +264,27 @@ class HyakScheduler(object):
                 print('Creating {0}'.format(self.config['SCRIPT_HISTORY']))
                 os.makedirs(self.config['SCRIPT_HISTORY'])
 
-            with open(script_file, 'w') as f:
-                for line in lines:
-                    f.write('{0}\n'.format(line))
 
             if not as_array:
-                time.sleep(0.05)
-                out, err = execute_and_return('sbatch {0}'.format(script_file))
-                if err != '':
-                    print(err)
+                print('Writing job file to: {0}'.format(script_file))
+                with open(script_file, 'w') as f:
+                    for line in lines:
+                        f.write('{0}\n'.format(line))
+                if not requeue:
+                    time.sleep(0.05)
+                    out, err = execute_and_return('sbatch {0}'.format(script_file))
+                    if err != '':
+                        print(err)
+                else:
+                    num_requeues = int((time_hours+(time_minutes/60)+requeue_length_hours-0.01)//requeue_length_hours)
+                    bid, err = execute_and_return('sbatch --parsable {0}'.format(script_file))
+                    for j in range(num_requeues-1):
+                        print(num_requeues, bid)
+                        if err != '':
+                            print(err)
+                            break
+                        time.sleep(0.05)
+                        bid, err = execute_and_return(f'sbatch --parsable --dependency=afterany:{bid} {script_file}')
 
         if as_array:
             print('creating array...')
@@ -319,9 +331,15 @@ class HyakScheduler(object):
                 for line in script_list:
                     f.write('{0}\n'.format(line))
 
-            out, err = execute_and_return('sbatch {0}'.format(array_file))
-            if err != '':
-                print(err)
+            if not requeue:
+                out, err = execute_and_return('sbatch {0}'.format(array_file))
+                if err != '':
+                    print(err)
+            else:
+                raise NotImplementedError('Requeue does not work for array jobs!')
+
+
+
 
 
 
@@ -332,6 +350,7 @@ class SshScheduler(object):
     def __init__(self, config_folder='./config', verbose=False):
         self.queue = Queue()
         self.host_data = None
+
         self.last_polled = datetime.datetime.now() - datetime.timedelta(hours=1)
 
         self.host2config = self.init_hosts(config_folder)

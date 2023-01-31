@@ -1,0 +1,1 @@
+squeue -t running -O "UserName,jobid:10,Account,cpus-per-task:5,NodeList,Gres,TimeUsed:10,minmemory:5,tres:67" | grep ckpt | grep gres/gpu | rev | awk '{print substr($1,0,1)}' | awk '{total=total+$1} END{print total}'

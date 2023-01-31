@@ -1,3 +1,8 @@
 name,start_regex,end_regex,contains,smaller_is_better,agg,reference_metric_name,value,func
 acc,acc\":,,,0,mean,,
+#lambada,"\|            \|       \|acc            \| ","\|",,0,mean,,
 ppl,word_perplexity\":,,,1,mean,,
+#entropy,total entropy:,,,1,mean,,
+#entropy/param,entropy per param:,,,1,mean,,
+#ffn entropy,min ffn entropy:,,,1,mean,,
+#attn entropy,min attn entropy:,,,1,mean,,

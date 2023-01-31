@@ -65,6 +65,7 @@ folders = [x[0] for x in os.walk(args.folder_path)]
 
 
 
+print(metrics)
 if metrics is not None:
     for metric in metrics:
         regex = re.compile(r'(?<={0}).*(?={1})'.format(metric['start_regex'], metric['end_regex']))
@@ -179,7 +180,7 @@ for config in configs:
         x = np.array(config['METRICS'][name])
         if x.size == 0 and metric['agg'] != 'stop': continue
         #if x.size == 0: continue
-        if x.size == 1: x = x[0]
+        if x.size == 1: x = float(x[0])
         elif metric['agg'] == 'last': x = x[-1]
         elif metric['agg'] == 'mean': x = np.mean(x)
         elif metric['agg'] == 'min': x = np.nanmin(x)
