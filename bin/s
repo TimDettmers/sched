@@ -1,0 +1,11 @@
+#!/bin/bash
+# see jobs are running
+squeue -t running -O "UserName,jobid:10,Account,cpus-per-task:5,NodeList,Gres,TimeUsed:10,minmemory:5,tres:67" | grep ckpt | grep gres/gpu 
+# see jobs are pending
+squeue -t pending -O "UserName,jobid:10,Account,cpus-per-task:5,NodeList,Gres,TimeUsed:10,minmemory:5,tres:67" | grep ckpt | grep gres/gpu 
+
+# which job runs first once GPUs become available
+sprio -l -S +y -n | grep ckpt
+
+# which GPUs are free
+sinfo -O nodehost:10,cpusstate:15,freemem:10,gres,gresused:30 -S nodehost $@ | grep -v null | grep ":[0-7](I"
