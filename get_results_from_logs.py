@@ -449,6 +449,6 @@ if args.csv is not None:
     metrics = set([m['name'] for m in metrics])
     to_drop = [col for col in df.columns if col not in args.groupby and col not in metrics]
     df = df.drop(columns=to_drop)
-    df.to_csv(args.csv, sep=';', index=False)
+    df.to_csv(args.csv, sep='\t', index=False)
     print(args.csv)
 

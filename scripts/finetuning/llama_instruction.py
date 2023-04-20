@@ -22,9 +22,6 @@ args = parser.parse_args()
 gpus = 1
 gpus_per_node = gpus
 port = np.random.randint(12200, 12999, 1)
-#cmd = f'python -m torch.distributed.launch --master_port MASTER_PORT --nproc_per_node={gpus} examples/text-classification/run_glue.py --model_name_or_path roberta-large --task_name mrpc --do_train --do_eval --per_device_eval_batch_size 8 --overwrite_output_dir --logging_steps 1000 --logging_dir ~/data/logs/adamix/roberta_large_rte --evaluation_strategy epoch --save_strategy epoch --warmup_ratio 0.1 --apply_expert_soup --adapter_size 16 --num_experts 4 --seed 0 --inference_level 3 --sharing_up 1 --sharing_down 0 --use_consistency_loss 1'
-#cmd = f'python -m torch.distributed.launch --master_port MASTER_PORT --nproc_per_node={gpus} examples/text-classification/run_glue.py --model_name_or_path roberta-large --do_train --do_eval --per_device_eval_batch_size 8 --overwrite_output_dir --logging_steps 1000 --logging_dir ~/data/logs/adamix/roberta_large_rte --evaluation_strategy epoch --save_strategy epoch --warmup_ratio 0.1'
-#cmd = 'python examples/pytorch/text-classification/run_glue.py --model_name_or_path roberta-large --do_train --do_eval --per_device_eval_batch_size 2 --logging_steps 1000 --logging_dir ~/data/logs/adamix/roberta_large_rte --evaluation_strategy epoch'
 cmd = 'python train.py'
 
 checkpoint_base_dir = '/gscratch/scrubbed/timdettmers/checkpoints'

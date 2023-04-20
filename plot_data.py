@@ -46,7 +46,7 @@ if args.out == '': args.out = args.csv.replace('csv','png')
 if not os.path.exists(os.path.dirname(args.out)):
     os.makedirs(os.path.dirname(args.out))
 
-df = pd.read_csv(args.csv, sep=';')
+df = pd.read_csv(args.csv, sep='\t')
 df = df.fillna(False)
 
 rename_keys = [] if args.rename == '' else args.rename
