@@ -276,7 +276,7 @@ class HyakScheduler(object):
                     if err != '':
                         print(err)
                 else:
-                    num_requeues = int((time_hours+(time_minutes/60)+requeue_length_hours-0.01)//requeue_length_hours)
+                    num_requeues = int((time_hours+(time_minutes/60)+requeue_length_hours-0.01)/requeue_length_hours)
                     bid, err = execute_and_return('sbatch --parsable {0}'.format(script_file))
                     for j in range(num_requeues-1):
                         print(num_requeues, bid)

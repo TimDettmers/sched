@@ -7,6 +7,7 @@ import uuid
 import hashlib
 import glob
 import math
+import random
 from itertools import product
 from torch.optim.lr_scheduler import OneCycleLR
 
@@ -21,12 +22,12 @@ args = parser.parse_args()
 
 
 gpus = 4
-#memory, constraint = 10, '"[2080ti]"'
+#memory, constraint = 10, '"[2080ti]"
 #memory, constraint = 21, '"[rtx6k|a40]"'
-#memory, constraint = 18, '"[rtx6k]"'
+#memory, constraint = 21, '"[rtx6k]"'
 #memory, constraint = 70, '"[a100]"'
-#memory, constraint = 38, '"[a40]"'
-memory, constraint = 38, '"[a40|a100]"'
+memory, constraint = 38, '"[a40]"'
+#memory, constraint = 38, '"[a40|a100]"'
 #memory, constraint = 21, '"[rtx6k|a40|a100]"'
 #memory, constraint = 10, '"[2080ti|rtx6k|titan]"'
 #memory, constraint = 10, '"[2080ti|rtx6k|titan|a40]"'
@@ -34,23 +35,26 @@ memory, constraint = 38, '"[a40|a100]"'
 
 cmd = f'python ~/git/forked/lm-evaluation-harness/main.py --model hf --use_accelerate --max_memory_per_gpu {memory}GB --no_cache --skip_tokenizer'
 
-name = 'full2'
+name = 'fewshot1'
+offset = 0
 
-logfolder = 'quant_scale3/llama/{0}'.format(name)
+logfolder = 'evo/normal/{0}'.format(name)
 ckp_name = logfolder
 cpus_per_task = 2
 mem = ((1*memory)*(8 if gpus > 8 else gpus))+20
-num_seeds = 1
-seed_offset = 4
+num_seeds = 5
+seed_offset = 0
 time_hours = 4
 time_minutes = 0
 
 begin = None
-partition = 'ckpt'
+#partition = 'ckpt'
 #partition = 'gpu-rtx6k'
-#partition = 'gpu-a40'
+partition = 'gpu-a40'
 #account = 'stf'
 account = 'zlab'
+#account = 'ark'
+#account = 'efml'
 
 #begin = 'now+8hours'
 #begin = '19:00'
@@ -80,21 +84,11 @@ args3 = {}
 #args3['tasks'] = ['winogrande,piqa,hellaswag,lambada']
 #args3['tasks'] = ['winogrande,piqa,hellaswag,lambada,pile_pile-cc,wikitext']
 #args3['tasks'] = ['winogrande,piqa,hellaswag,lambada,pile_pile-cc']
-args3['tasks'] = ['winogrande,piqa,hellaswag,pile_pile-cc']
+#args3['tasks'] = ['winogrande,piqa,hellaswag,pile_pile-cc']
 #args3['tasks'] = ['winogrande']
-#args3['tasks'] = ['winogrande,piqa,hellaswag,lambada']
-#args3['tasks'] = ['pile_pile-cc']
+args3['tasks'] = ['winogrande,piqa,hellaswag,pile_pile-cc,arc_easy,arc_challenge']
+#args3['tasks'] = ['pile_pile-cc,wikitext']
 
-hdims = [768, 1024, 2048, 2560, 4096, 5120, 7168, 9216]
-
-for d in hdims:
-    match = False
-    for div in [1024]:
-        if d % div == 0:
-            match = True
-            print(d, div)
-    if not match:
-        print('no match', d)
 #ms = 'pretrained=gpt2{}'
 #args3['model_args'] = [ms.format(''), ms.format('-medium'), ms.format('-large'), ms.format('-xl')] # 1 rtx6k or 2080 ti
 
@@ -122,24 +116,44 @@ for d in hdims:
 #args3['model_args'] = [ms.format('6.7b'), ms.format('13b'), 'pretrained=EleutherAI/gpt-neox-20b'] # 2 a40
 
 
-#model_str = 'pretrained=facebook/opt-{}'
-#model_str = 'pretrained=facebook/opt-{}'
-#model_str = 'pretrained=/gscratch/scrubbed/timdettmers/models/hf_checkpoint/'
 model_str = 'pretrained=/gscratch/zlab/llama/'
 args3['model_args'] = []
 #args3['model_args'].append(model_str + '7B') # 1x A40
-#args3['model_args'].append(model_str + '13B') # 1x A40
+#args3['model_args'].append(model_str + '13B') # 1x A40 or 2 rtx6k
 #args3['model_args'].append(model_str + '30B') # 2x A40
-args3['model_args'].append(model_str + '65B') # 4x A40
-#args3['model_args'] = [model_str]
-#args3['model_args'] = [model_str.format('125m'), model_str.format('350m'), model_str.format('1.3b'), model_str.format('2.7b')] # 1 2080ti
+args3['model_args'].append(model_str + '65B') # 4x A40 or 7 rtx6b
+
+#model_str = 'pretrained=/gscratch/scrubbed/timdettmers/models/hf_checkpoint/'
+#args3['model_args'] = []
+#model_str = 'pretrained=facebook/opt-{}'
+#args3['model_args'].append(model_str.format('125m'))
+#args3['model_args'].append(model_str.format('350m'))
+#args3['model_args'].append(model_str.format('1.3b'))
+#args3['model_args'].append(model_str.format('2.7b')) # 1x rtx 2080 ti
+
 #args3['model_args'] = [model_str.format('6.7b')] # 1 rtx 6k
 #args3['model_args'] = [model_str.format('13b')] # 2 rtx6k or 1 a40
 #args3['model_args'] = [model_str.format('30b')] # 2 a40 or 4 rtx6k or 1 A100
 #args3['model_args'] = [model_str.format('66b')] # 4 a40 or 7 rtx6k or 2 A100
-#bits = [8, 6, 4]
-#bits = [3, 4]
-#bits = [7]
+
+args3['dtype'] = ['float16']
+args3['total_bits'] = [4]
+args3['blocksize'] = [64]
+
+#args3['ebits'] = [2, 3]
+#args3['method'] = ['blockwise_fp8']
+#args3['method'] = ['blockwise_linear']
+
+args3['custom_scale'] = [0.9677083]
+#args3['use_extra_value'] = [True, False]
+args3[('use_extra_value', 'method', 'ebits', 'nested')] = []
+args3[('use_extra_value', 'method', 'ebits', 'nested')].append((True, 'blockwise_normal', 3, True))
+args3[('use_extra_value', 'method', 'ebits', 'nested')].append((True, 'blockwise_normal', 3, False))
+args3[('use_extra_value', 'method', 'ebits', 'nested')].append((False, 'blockwise_normal', 3, False))
+args3[('use_extra_value', 'method', 'ebits', 'nested')].append((False, 'blockwise_fp8', 3, False))
+args3[('use_extra_value', 'method', 'ebits', 'nested')].append((False, 'blockwise_fp8', 2, False))
+args3[('use_extra_value', 'method', 'ebits', 'nested')].append((False, 'blockwise_linear', 3, False))
+
 
 #bits = [8, 7, 6, 5, 4, 3]
 #args3['total_bits'] = bits
@@ -159,10 +173,10 @@ args3['model_args'].append(model_str + '65B') # 4x A40
 #args3['blocksize'] = [2048, 1024, 512]
 
 # BASE
-bits = [8, 7, 6, 5, 4, 3]
-args3[('total_bits', 'ebits')] = list(zip(bits, [3, 3, 3, 3, 2, 1]))
-args3['blocksize'] = [64, 128]
-args3['method'] = ['blockwise_linear', 'blockwise_dynamic', 'blockwise_quantile', 'blockwise_fp8']
+#bits = [8, 7, 6, 5, 4, 3]
+#args3[('total_bits', 'ebits')] = list(zip(bits, [3, 3, 3, 3, 2, 1]))
+#args3['blocksize'] = [64, 128]
+#args3['method'] = ['blockwise_linear', 'blockwise_dynamic', 'blockwise_quantile', 'blockwise_fp8']
 
 # 175b
 #bits = [8, 4, 3]
@@ -283,11 +297,12 @@ for seed in range(num_seeds):
             for val in values:
                 job_cmd += ' {0}' .format(val)
             if not fp16: job_cmd = job_cmd.replace('--fp16 ', ' ')
-            #job_cmd = job_cmd + ' --seed {0}'.format(seed)
+            job_cmd = job_cmd + ' --seed {0}'.format(seed)
             checkpoint_dir = '{2}/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name, checkpoint_base_dir)
             save_dir = ' --save-dir {0}'.format(checkpoint_dir)
             #job_cmd = job_cmd + save_dir
             #cmds = ['source /private/home/timdettmers/.bashrc', 'source activate base2', job_cmd]
+            #cmds = [f'sleep {random.randrange(15, 300)}', job_cmd]
             cmds = [job_cmd]
             if rdm.rand(1) <= args.p:
                 jobs.append(job_cmd)

@@ -102,12 +102,8 @@ for script_name in restarts:
         data = script2data[script_name]
         print('Originally: Job {0} with State {1} on NodeList {2}'.format(*data[-3:]))
         script, array_id, jobstr, state, node = data
-        if 'array_jobs' in script:
-            print('Restarting script: {0}'.format(script_name))
-            cmd = 'sbatch --exclude={1} {0}'.format(script_name, ','.join(banned))
-        else:
-            print('Restarting script: {0}'.format(script_name))
-            cmd = 'sbatch --exclude={1} {0}'.format(script_name, ','.join(banned))
+        print('Restarting script: {0}'.format(script_name))
+        cmd = 'sbatch --exclude={1} {0}'.format(script_name, ','.join(banned))
 
         out, err = execute_and_return(cmd)
         if len(err) > 0:
@@ -117,8 +113,7 @@ for script_name in restarts:
         print('Originally: Job {0} with State {1} on NodeList {2}'.format(*data[-3:]))
         if args.verbose:
             script, array_id, jobstr, state, node = data
-            if 'array_jobs' in script:
-                cmd = 'sbatch --exclude={1} {0}'.format(script_name, ','.join(banned))
+            cmd = 'sbatch --exclude={1} {0}'.format(script_name, ','.join(banned))
             if args.verbose:
                 print(cmd)
 

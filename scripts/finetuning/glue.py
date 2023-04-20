@@ -1,0 +1,195 @@
+import numpy as np
+import itertools
+import gpuscheduler
+import argparse
+import os
+import uuid
+import hashlib
+import glob
+import math
+from itertools import product
+from torch.optim.lr_scheduler import OneCycleLR
+
+from os.path import join
+
+parser = argparse.ArgumentParser(description='Compute script.')
+parser.add_argument('--dry', action='store_true')
+parser.add_argument('--verbose', action='store_true')
+parser.add_argument('--p', type=float, default=1.0, help='Probability with which to select a configuration.')
+args = parser.parse_args()
+
+
+gpus = 1
+gpus_per_node = 1
+port = np.random.randint(12200, 12999, 1)
+#cmd = f'python -m torch.distributed.launch --master_port MASTER_PORT --nproc_per_node={gpus} examples/text-classification/run_glue.py --model_name_or_path roberta-large --task_name mrpc --do_train --do_eval --per_device_eval_batch_size 8 --overwrite_output_dir --logging_steps 1000 --logging_dir ~/data/logs/adamix/roberta_large_rte --evaluation_strategy epoch --save_strategy epoch --warmup_ratio 0.1 --apply_expert_soup --adapter_size 16 --num_experts 4 --seed 0 --inference_level 3 --sharing_up 1 --sharing_down 0 --use_consistency_loss 1'
+#cmd = f'python -m torch.distributed.launch --master_port MASTER_PORT --nproc_per_node={gpus} examples/text-classification/run_glue.py --model_name_or_path roberta-large --do_train --do_eval --per_device_eval_batch_size 8 --overwrite_output_dir --logging_steps 1000 --logging_dir ~/data/logs/adamix/roberta_large_rte --evaluation_strategy epoch --save_strategy epoch --warmup_ratio 0.1'
+cmd = 'python examples/pytorch/text-classification/run_glue.py --model_name_or_path roberta-large --do_train --do_eval --per_device_eval_batch_size 2 --logging_steps 1000 --logging_dir ~/data/logs/adamix/roberta_large_rte --evaluation_strategy epoch'
+
+checkpoint_base_dir = '/gscratch/scrubbed/timdettmers/checkpoints/'
+
+args2 = {}
+
+#name = 'cola1'
+name = '8bit_2'
+#constraint = '"[rtx6k|a40|a100]"'
+constraint = '"[rtx6k|a40|a100|2080ti]"'
+#constraint = '"[a100]"'
+#constraint = '"[rtx6k|a40]"'
+
+logfolder = 'finetuning/{0}'.format(name)
+ckp_name = logfolder
+cores_per_job = 2
+mem = 12*(8 if gpus > 8 else gpus)
+num_seeds = 5
+seed_offset = 3
+time_minutes = 0
+
+begin = None
+#partition = 'ckpt'
+#partition = 'gpu-rtx6k'
+partition = 'gpu-a40'
+
+#begin = 'now+8hours'
+#begin = '19:00'
+#begin = '03:00'
+#partition = 'scavenge'
+
+change_dir = 'transformers/'
+repo = 'transformers'
+exclude = 'g3055'
+account = 'zlab'
+
+s = gpuscheduler.HyakScheduler(verbose=args.verbose, account=account, partition=partition, use_gres=False)
+
+
+
+args2 = {}
+args3 = {}
+
+requeue = False
+time_hours = 48
+if requeue:
+    args2['save_strategy'] = 'epoch'
+    time_hours = 24
+else:
+    #args2['overwrite_output_dir'] = True
+    args2['save_strategy'] = 'epoch'
+args3[('use_adapter', 'fp16', 'bits')] = []
+#args3[('use_adapter', 'fp16', 'bits')].append((False, False, 32))
+#args3[('use_adapter', 'fp16', 'bits')].append((True, True, 16))
+#args3[('use_adapter', 'fp16', 'bits')].append((True, True, 4))
+args3[('use_adapter', 'fp16', 'bits')].append((True, False, 8))
+#args3['bits'] = [16]
+key = ('num_train_epochs', 'learning_rate', 'per_device_train_batch_size', 'weight_decay', 'task_name', 'max_seq_length')
+args3[key] = []
+#args3[key].append((11, 2e-04, 4, 0.01, 'rte', 320))
+#args3[key].append((30, 2e-04, 32, 0.01, 'mrpc', 128))
+#args3[key].append((10, 2e-04, 4, 0.1, 'stsb', 128))
+#args3[key].append((10, 1e-04, 4, 0, 'cola', 64))
+
+#args3[key].append((16, 6e-05, 8, 0.01, 'sst2', 128))
+args3[key].append((8, 1e-04, 6, 0.01, 'qnli', 512))
+
+args3[key].append((11, 1e-04, 8, 0.01, 'qqp', 320))
+args3[key].append((5, 1e-04, 8, 0, 'mnli', 256))
+
+args3['lora_r'] = [64]
+args3['lora_alpha'] = [16]
+args3['lora_dropout'] = [0.0]
+#args3['lora_modules'] = ['all', 'out', 'ffn', 'attn']
+#args3['lora_modules'] = ['ffn', 'all']
+#args3['lora_modules'] = ['out', 'ffn', 'all']
+args3['lora_modules'] = ['ffn']
+#args3['adam_beta2'] = [0.99, 0.995]
+args3['warmup_ratio'] = [0.1]
+
+args4 = []
+
+args5 = {}
+
+args6 = {}
+
+rdm = np.random.RandomState(5345)
+
+for key, value in args2.items():
+    if value == True:
+        cmd = cmd + ' --{0}'.format(key)
+    else:
+        cmd = cmd + ' --{0} {1}'.format(key, value)
+
+args_prod = []
+for key, values in args3.items():
+    if isinstance(key, tuple):
+        keyvalues = []
+        for tups in values:
+            arg = ''
+            for i, v in enumerate(tups):
+                if v is True: v = ''
+                if v is False: continue
+                if len(key[i]) == 0:
+                    arg += '{0} '.format(v)
+                else:
+                    arg += '--{0} {1} '.format(key[i], v)
+            keyvalues.append(arg)
+    elif isinstance(key, str):
+        keyvalues = []
+        for v in values:
+            if v is True: v = ''
+            if v is False:
+                keyvalues.append('')
+            else:
+                keyvalues.append(' --{0} {1}'.format(key, v))
+    args_prod.append(keyvalues)
+
+if len(args_prod) >= 2:
+    args_prod = list(product(*args_prod))
+else:
+    new_args = []
+    if len(args_prod) > 0:
+        for arg in args_prod[0]:
+            new_args.append([arg])
+        args_prod = new_args
+
+jobs = []
+port = port[0]
+if len(args4) == 0: args4.append('')
+for seed in range(num_seeds):
+    seed = seed + seed_offset
+    for arg4 in args4:
+        if len(args_prod) == 0: args_prod.append(('', ''))
+        for i, values in enumerate(args_prod):
+            port += 1
+            job_cmd = cmd + arg4
+            for val in values:
+                job_cmd += ' {0}' .format(val)
+            checkpoint_dir = '{2}/{1}/{0} '.format(hashlib.md5(str(job_cmd).encode('utf-8')).hexdigest(), ckp_name, checkpoint_base_dir)
+            save_dir = ' --output_dir {0}'.format(checkpoint_dir)
+            job_cmd += save_dir
+            job_cmd = job_cmd.replace('MASTER_PORT', str(port))
+            job_cmd = job_cmd + ' --seed {0}'.format(seed)
+            job_cmd = job_cmd + f' --experiment_id {hashlib.md5(str(job_cmd).encode("utf-8")).hexdigest()}'
+            cmds = ['mkdir -p /tmp/huggingface/datasets', 'cp -r ~/.cache/huggingface/datasets/glue /tmp/huggingface/datasets/', 'cp -r ~/.cache/huggingface/hub/models--roberta-large /tmp/huggingface/']
+            cmds = cmds + [job_cmd]
+            if rdm.rand(1) <= args.p:
+                jobs.append(job_cmd)
+                s.add_job(logfolder, repo, change_dir, cmds, time_hours, False, cores=cores_per_job, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
+
+if args.dry:
+    for i, job in enumerate(jobs):
+        print(i, job)
+    print('')
+    print('Total jobs', len(jobs))
+    print('Time hours: {0}'.format(time_hours))
+    print('GPUs: {0}'.format(gpus))
+    print('begin: {0}'.format(begin))
+    print('Jobs will be written to: {0}'.format(join(s.config['LOG_HOME'], logfolder)))
+    print('Jobs will be run on: {0}'.format(partition))
+    print('Run in folder: {0}'.format(change_dir))
+
+if not args.dry:
+    if not requeue:
+        s.run_jobs(begin=begin, gpus_per_node=gpus_per_node, requeue=False, as_array=True, single_process=True)
+    else:
+        s.run_jobs(begin=begin, gpus_per_node=gpus_per_node, requeue=True, as_array=False, single_process=True)
+

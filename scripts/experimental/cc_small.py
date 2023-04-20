@@ -49,7 +49,7 @@ partition = 'learnlab'
 checkpoint_base_dir = '/gscratch/scrubbed/timdettmers/'
 change_dir = 'fairseq_private/'
 repo = 'fairseq_private'
-exclude = ''
+exclude = 'g3038'
 
 s = gpuscheduler.HyakScheduler(verbose=args.verbose, account='', partition=partition, use_gres=False)
 

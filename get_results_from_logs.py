@@ -10,6 +10,7 @@ import copy
 from os.path import join
 import pandas as pd
 import operator
+import json
 pd.set_option('display.max_colwidth', None)
 
 # output possible parameters configurations
@@ -38,6 +39,7 @@ parser.add_argument('--hard-filter', action='store_true', default=False, help='F
 parser.add_argument('--all', action='store_true', help='Prints all individual scores.')
 parser.add_argument('--csv', type=str, default=None, help='Prints all argparse arguments with differences.')
 parser.add_argument('--smaller-is-better', action='store_true', help='Whether a lower metric is better.')
+parser.add_argument('--latest', action='store_true', help='Whether a lower metric is better.')
 parser.add_argument('--vim', action='store_true', help='Prints a vim command to open the files for the presented results')
 parser.add_argument('--num-digits', type=int, default=4, help='The significant digits to display for the metric value')
 parser.add_argument('--early-stopping-condition', type=str, default=None, help='If a line with the keyphrase occurs 3 times, the metric gathering is stopped for the log')
@@ -46,8 +48,19 @@ parser.add_argument('--agg', type=str, default='last', choices=['mean', 'last', 
 parser.add_argument('--limits', nargs='+', type=int, default=None, help='Sets the [min, max] range of the metric value (two space separated values).')
 parser.add_argument('--metric-file', type=str, default=None, help='A metric file which tracks multiple metrics as once.')
 parser.add_argument('--median', action='store_true', help='Use median instead of mean.')
+parser.add_argument('--use_json_metrics', action='store_true', help='Parse all metrics by looking for a line of json.')
+parser.add_argument('--main_json_metrics', nargs='+', type=str, default=None, help='The main metric in the json dictionary.')
+parser.add_argument('--parser_name', type=str, default='Namespace', help='The name of the argument parser')
+parser.add_argument('--json_single', action='store_true', help='Restrict json output to the value specified in --main_json_metric')
+
+
 
 args = parser.parse_args()
+
+args.parser_name += '('
+
+if args.use_json_metrics and args.main_json_metrics is None:
+    raise ValueError('--main_json_metric needs to be set if --use_json_metrics is used!')
 
 metrics = None
 if args.metric_file is not None:
@@ -59,20 +72,28 @@ else:
     primary_metric = 'default'
     smaller_is_better = args.smaller_is_better
 
+if args.use_json_metrics:
+    primary_metric = args.main_json_metrics[0]
+    metrics = {'name' : primary_metric}
+    smaller_is_better = args.smaller_is_better
+
 if args.limits is not None: args.limits = tuple(args.limits)
+if args.main_json_metrics is not None: args.main_json_metrics = set(args.main_json_metrics)
 
 folders = [x[0] for x in os.walk(args.folder_path)]
 
 
 
-print(metrics)
-if metrics is not None:
-    for metric in metrics:
-        regex = re.compile(r'(?<={0}).*(?={1})'.format(metric['start_regex'], metric['end_regex']))
-        metric['regex'] = regex
-else:
-    regex = re.compile(r'(?<={0}).*(?={1})'.format(args.start, args.end))
-    metrics = [{'name' : 'default', 'regex' : regex, 'contains' : args.contains, 'agg' : args.agg }]
+if not args.use_json_metrics:
+    if metrics is not None:
+        for metric in metrics:
+            print(metric)
+            regex = re.compile(r'(?<={0}).*(?={1})'.format(metric['start_regex'], metric['end_regex']))
+            #regex = re.compile(r'{0}'.format(metric['start_regex']))
+            metric['regex'] = regex
+    else:
+        regex = re.compile(r'(?<={0}).*(?={1})'.format(args.start, args.end))
+        metrics = [{'name' : 'default', 'regex' : regex, 'contains' : args.contains, 'agg' : args.agg }]
 
 def clean_string(key):
     key = key.strip()
@@ -85,22 +106,31 @@ def clean_string(key):
     key = key.replace('=', '')
     return key
 
+def find_json_value(json_dict, key):
+    for key2, value in json_dict.items():
+        if isinstance(value, dict): return find_json_value(value, key)
+        else:
+            if key == key2: return value
+
+
 configs = []
 all_cols = set(['NAME'])
 for folder in folders:
     for log_name in glob.iglob(join(folder, '*.log')):
         config = {'METRICS' : {}, 'NAME' : log_name}
-        for metric in metrics:
-            config['METRICS'][metric['name']] = []
+        if not args.use_json_metrics:
+            for metric in metrics:
+                config['METRICS'][metric['name']] = []
         if not os.path.exists(log_name.replace('.log','.err')): config['has_error'] = False
         elif os.stat(log_name.replace('.log','.err')).st_size > 0: config['has_error'] = True
         else: config['has_error'] = False
         with open(log_name, 'r') as f:
             has_config = False
+            values = None
             for line in f:
-                if 'Namespace(' in line and not has_config:
+                if args.parser_name in line and not has_config:
                     has_config = True
-                    line = line[line.find('Namespace(')+len('Namespace('):]
+                    line = line[line.find(args.parser_name)+len(args.parser_name):]
                     matches = re.findall(r'(?!^\()([^=,]+)=([^\0]+?)(?=,[^,]+=|\)$)', line)
                     for m in matches:
                         key = clean_string(m[0])
@@ -111,39 +141,82 @@ for folder in folders:
                         # we just want the config, no metrics
                         break
 
-                for metric in metrics:
-                    contains = metric['contains']
-                    #if 'word_perp' in line:
-                    #    print(line)
-                    #    print(regex)
-                    #print(contains)
-                    if contains != '' and not contains in line: continue
-                    regex = metric['regex']
-                    name = metric['name']
-                    func = metric.get('func', '')
-                    matches = re.findall(regex, line)
-                    if len(matches) > 0:
-                        #if not has_config:
-                        #    print('Config for {0} not found. Test metric: {1}'.format(log_name, matches[0]))
-                        #    break
-                        if name not in config['METRICS']: config['METRICS'][name] = []
-                        try:
-                            val = matches[0].strip()
-                            if ',' in val: val = val.replace(',', '')
-                            val = float(val)
-                            if math.isnan(val) or math.isinf(val):
-                                val = 1e6
-                            if func != '':
-                                val = eval(func)(val)
-                            config['METRICS'][name].append(val)
-                        except:
-                            print(line)
-                            print(regex)
-                            print(matches[0])
-                            continue
+                if args.use_json_metrics:
+                    if line.startswith('{'):
+                        if args.json_single: new_values = {}
+                        for metric in args.main_json_metrics:
+                            if metric in line:
+                                line = line.replace("'", '"')
+                                line = line.replace('nan','0')
+                                try:
+                                    new_values = json.loads(line)
+                                    tmp = {}
+                                    [tmp.update({m: find_json_value(new_values, m)}) for m in args.main_json_metrics]
+                                    new_values = tmp
+                                    #values = new_values
+                                    if values is None: values = new_values
+                                    if args.latest:
+                                        values = new_values
+                                    elif args.smaller_is_better:
+                                        if values is not None and new_values[primary_metric] < values[primary_metric]:
+                                            values = new_values
+                                    else:
+                                        if values is not None and new_values[primary_metric] > values[primary_metric]:
+                                            values = new_values
+
+
+                                except Exception as err:
+                                    print(str(err))
+                                    pass
+                else:
+                    for metric in metrics:
+                        contains = metric['contains']
+                        #if 'word_perp' in line:
+                        #    print(line)
+                        #    print(regex)
+                        #print(contains)
+                        if contains != '' and not contains in line: continue
+                        regex = metric['regex']
+                        name = metric['name']
+                        func = metric.get('func', '')
+                        matches = re.findall(regex, line)
+                        if len(matches) > 0:
+                            #if not has_config:
+                            #    print('Config for {0} not found. Test metric: {1}'.format(log_name, matches[0]))
+                            #    break
+                            if name not in config['METRICS']: config['METRICS'][name] = []
+                            try:
+                                val = matches[0].strip()
+                                if ',' in val: val = val.replace(',', '')
+                                val = float(val)
+                                if math.isnan(val) or math.isinf(val):
+                                    val = 1e6
+                                if func != '':
+                                    val = eval(func)(val)
+                                config['METRICS'][name].append(val)
+                            except:
+                                print(line)
+                                print(regex)
+                                print(matches[0])
+                                continue
+            if values is not None:
+                for k, v in values.items():
+                    if k not in config['METRICS']: config['METRICS'][k] = []
+                    config['METRICS'][k].append(v)
+                    metrics[k] = k
+
 
         if has_config:
+            #print(config)
+            #print(values)
             configs.append(config)
+
+if args.use_json_metrics:
+    new_metrics = []
+    for k, v in metrics.items():
+        new_metrics.append({'name' : v})
+    metrics = new_metrics
+
 
 if args.diff:
     key2values = {}
@@ -177,10 +250,18 @@ if args.diff:
 for config in configs:
     for metric in metrics:
         name = metric['name']
+        if name not in config['METRICS']:
+            config[name] = float('nan')
+            continue
+
         x = np.array(config['METRICS'][name])
         if x.size == 0 and metric['agg'] != 'stop': continue
         #if x.size == 0: continue
-        if x.size == 1: x = float(x[0])
+        if x.size == 1:
+            try:
+                x = float(x[0])
+            except Exception:
+                x = 0
         elif metric['agg'] == 'last': x = x[-1]
         elif metric['agg'] == 'mean': x = np.mean(x)
         elif metric['agg'] == 'min': x = np.nanmin(x)

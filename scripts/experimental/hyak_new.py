@@ -19,18 +19,18 @@ parser.add_argument('--p', type=float, default=1.0, help='Probability with which
 args = parser.parse_args()
 
 
-gpus = 8
-gpus_per_node = 8
+gpus = 16
+gpus_per_node = 4
 port = np.random.randint(12200, 12999, 1)
 cmd = 'srun fairseq-train --task language_modeling --share-decoder-input-output-embed --sample-break-mode none --log-format simple --log-interval 50 --fp16 --keep-best-checkpoints 1 --no-epoch-checkpoints --keep-interval-updates 1 --distributed-port {1} --distributed-world-size {0} --valid-subset valid --num-workers 2'.format(gpus, port[0])
 
 args2 = {}
 
-name = 'c4_0.5gpudays'
+name = 'adamix1'
 constraint = '"[rtx6k|a40|a100]"'
 #constraint = '"[rtx6k|a40]"'
 
-logfolder = 'ccsb/{0}'.format(name)
+logfolder = 'experimental/{0}'.format(name)
 ckp_name = logfolder
 cores_per_job = 2
 mem = 12*(8 if gpus > 8 else gpus)
@@ -136,7 +136,7 @@ args2['bashcmd'] = '"cp -r /gscratch/cse/data/cc_small /tmp/"'
 
 #args3['ff-block'] = ['subsampled', 'ff']
 #args3['ff-block'] = ['subsampled']
-args3['ff-block'] = ['ff']
+args3['ff-block'] = ['adamix', 'ff']
 args2['lr-scheduler'] = 'cosine'
 args2['optimizer'] = 'adam'
 args3['adam-betas'] = ["'(0.9, 0.995)'"] # baseline params
@@ -155,8 +155,8 @@ args3[('dropout', 'attention-dropout', 'relu-dropout')] = [(0.0, 0.0, 0.0)]
 key = ('lr', 'warmup-init-lr')
 args3[key] = []
 #args3[key].append((0.00163*0.75, 0.0))
-#args3[key].append((0.00163, 0.0))
-args3[key].append((0.00163*1.25, 0.0))
+args3[key].append((0.00163, 0.0))
+#args3[key].append((0.00163*1.25, 0.0))
 args4 = []
 
 args5 = {}
