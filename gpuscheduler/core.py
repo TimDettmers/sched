@@ -40,6 +40,18 @@ def execute(strCMD):
     except:
         return None
 
+def cmds_to_hash(cmds, nested=False):
+    strval = ''
+    if nested:
+        for cmds2 in cmds:
+            for cmd in cmds2:
+                strval += cmd
+    else:
+        for cmd in cmds:
+            strval += cmd
+
+    return hashlib.md5(strval.encode('utf-8')).hexdigest()
+
 def execute_blocking(strCMD):
     proc = subprocess.Popen(strCMD, shell=True, universal_newlines=True)
     proc.wait()
@@ -151,6 +163,89 @@ class GPUWorker(threading.Thread):
             print('{0}: Finish task with errors! Writing stdout data to {1} and error to {2}...'.format(self.prefix, file_path, err_file_path))
         else:
             print('{0}: Finish task successfully! Writing data to {1}...'.format(self.prefix, file_path))
+
+
+class GantryScheduler(object):
+    def __init__(self, config_path, cluster, budget, workspace, weka=None):
+        self.jobs = []
+        self.config = {}
+        self.init_with_config(config_path)
+        self.cluster = cluster
+        self.budget = budget
+        self.weka = weka
+        self.workspace = workspace
+
+    def init_with_config(self, config_path):
+        with open(config_path) as f:
+            for line in f:
+                name, value = line.split(' ')
+                self.config[name.strip()] = value.strip()
+
+    def update_host_config(self, name, mem_threshold, util_threshold):
+        pass
+
+
+    def add_job(self, path, cmds, time_hours=0, fp16=False, gpus=1, mem=32, cores=6, constraint='', exclude='', time_minutes=0):
+        if constraint != '': raise NotImplementedError('contraint not supported by beaker')
+        if time_minutes != 0: raise NotImplementedError('time limits are not supported by beaker')
+        if time_hours != 0: raise NotImplementedError('time limits are not supported by beaker')
+        if exclude != '': raise NotImplementedError('exclude are not supported by beaker')
+        self.jobs.append([path, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes])
+
+    def run_jobs(self, preemptible=True, as_array=True, sleep_delay_seconds=0, single_process=False, log_id=None, skip_cmds=0, comment=None, begin=None, gpus_per_node=8, requeue=False, requeue_length_hours=4):
+
+        if not os.path.exists(self.config['SCRIPT_HISTORY']):
+            os.makedirs(self.config['SCRIPT_HISTORY'])
+
+        print('processing cmds...')
+        file_contents = ''
+
+        strval = self.jobs[0][1]
+        if not isinstance(strval, str): strval = strval[0]
+        init_hash = cmds_to_hash(self.jobs[0][1], nested=True)
+        init_file = join(self.config['SCRIPT_HISTORY'], 'init_{0}.sh'.format(init_hash))
+
+        lines = []
+        lines.append('#!/bin/bash\n')
+        lines.append('#\n')
+        for i, (path, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
+            if not as_array:
+                if i % 10 == 0 and i > 0: print('Processing cmd no ', i)
+
+            if not isinstance(cmds, list): cmds = [cmds]
+
+            cmd_hash = cmds_to_hash(cmds)
+            run_file = join(self.config['SCRIPT_HISTORY'], f'run_{cmd_hash}.sh')
+            nodes = gpus // gpus_per_node
+            nodes += 1 if (gpus % gpus_per_node) > 0 else 0
+            if nodes == 0: nodes = 1
+            gpus = gpus_per_node if gpus > gpus_per_node else gpus
+            if not isinstance(cmds, list): cmds = [cmds]
+            log_path = join(join(self.config['LOG_HOME'], path))
+            if gpus > 8: raise NotImplementedError('Multi-node jobs are currently not supported')
+
+            lines.append((f'gantry run --allow-dirty --cpus {cores} --gpus {gpus} --workspace {self.workspace}'
+                    f' --cluster {self.cluster} {"--preemptible" if preemptible else ""} --no-python --budget {self.budget} -n {cmd_hash} -- bash {run_file}\n\n'))
+
+            with open(run_file, 'w') as g:
+                g.write('#!/bin/bash\n')
+                g.write('#\n')
+                g.write('export PATH="{0}:$PATH"'.format(join(self.config['ANACONDA_HOME'], 'bin')) + '\n')
+                g.write('\n')
+                for cmd_no, cmd in enumerate(cmds[skip_cmds:]):
+                    g.write(cmd + '\n')
+
+
+        with open(init_file, 'w') as f:
+            f.writelines(lines)
+
+        out, err = execute_and_return('bash {0}'.format(init_file))
+        if err != '':
+            print(err)
+
+
+
+
 
 
 class HyakScheduler(object):
