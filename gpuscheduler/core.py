@@ -227,7 +227,9 @@ class GantryScheduler(object):
             if gpus > 8: raise NotImplementedError('Multi-node jobs are currently not supported')
 
             lines.append((f'gantry run --allow-dirty --cpus {cores} --gpus {gpus} --workspace {self.workspace}'
-                    f' --cluster {self.cluster} {"--preemptible" if preemptible else ""} --no-python --budget {self.budget} -n {cmd_hash} -- bash {run_file}\n\n'))
+                    f' --cluster {self.cluster} {"--preemptible" if preemptible else ""}'
+                    f' {f"--weka={self.weka}" if self.weka is not None else ""}'
+                    f' --no-python --budget {self.budget} -n {cmd_hash} -- bash {run_file}\n\n'))
 
             with open(run_file, 'w') as g:
                 g.write('#!/bin/bash\n')
