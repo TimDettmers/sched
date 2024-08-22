@@ -221,7 +221,9 @@ class GantryScheduler(object):
             if nodes == 0: nodes = 1
             gpus = gpus_per_node if gpus > gpus_per_node else gpus
             if not isinstance(cmds, list): cmds = [cmds]
-            log_path = join(join(self.config['LOG_HOME'], path))
+            log_folder = join(join(self.config['LOG_HOME'], path))
+            log_file = join(log_folder, f'{cmd_hash}.log')
+            os.makedirs(log_folder, exist_ok=True)
             if gpus > 8: raise NotImplementedError('Multi-node jobs are currently not supported')
 
             lines.append((f'gantry run --allow-dirty --cpus {cores} --gpus {gpus} --workspace {self.workspace}'
@@ -233,9 +235,12 @@ class GantryScheduler(object):
                 g.write('export PATH="{0}:$PATH"'.format(join(self.config['ANACONDA_HOME'], 'bin')) + '\n')
                 g.write('\n')
                 for cmd_no, cmd in enumerate(cmds[skip_cmds:]):
-                    g.write(cmd + '\n')
+                    g.write(f'echo "{cmd}"\n')
+                    g.write(cmd + f' 2>&1 | tee {log_file} \n')
 
 
+        print('writing init file to:')
+        print(init_file)
         with open(init_file, 'w') as f:
             f.writelines(lines)
 
