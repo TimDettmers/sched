@@ -37,11 +37,11 @@ memory, constraint = 48, '"[a100|a40]"'
 #constraint = '"[a100]"'
 #constraint = '"[rtx6k|a40]"'
 
-logfolder = 'test1/test2/beaker_test'
+logfolder = 'test1/test2/beaker_test3'
 ckp_name = logfolder
 cores_per_job = 4
 mem = 32
-num_seeds = 1
+num_seeds = 2
 seed_offset = 2
 requeue = False
 
@@ -61,7 +61,7 @@ s = gpuscheduler.GantryScheduler('./config/cirrascale.cfg', cluster='ai2/*cirras
 args2 = {}
 args3 = {}
 
-n = 1
+n = 3
 args3['comment'] = [f'"this is test number {i}"' for i in range(n)]
 args3['lr'] = [0.001, 0.003]
 
