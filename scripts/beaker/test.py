@@ -22,10 +22,12 @@ args = parser.parse_args()
 gpus = 1
 gpus_per_node = gpus
 port = np.random.randint(12200, 12999, 1)
-base_path = '/net/nfs.cirrascale/allennlp/timd/git/sched'
+#home_path = '/net/nfs.cirrascale/allennlp/timd'
+home_path = '/data/input/timd'
+base_path = join(home_path, 'git/sched')
 cmd = f'python {join(base_path, "tests/beaker_test.py")}'
 
-checkpoint_base_dir = '/net/nfs.cirrascale/allennlp/timd/checkpoints'
+checkpoint_base_dir = join(home_path, 'checkpoints')
 
 args2 = {}
 
@@ -37,7 +39,7 @@ memory, constraint = 48, '"[a100|a40]"'
 #constraint = '"[a100]"'
 #constraint = '"[rtx6k|a40]"'
 
-logfolder = 'test1/test2/beaker_test3'
+logfolder = 'gantry-beaker-sched/stresstest1'
 ckp_name = logfolder
 cores_per_job = 4
 mem = 32
@@ -56,14 +58,15 @@ exclude = ''
 #account = 'efml'
 account = 'zlab'
 
-s = gpuscheduler.GantryScheduler('./config/cirrascale.cfg', cluster='ai2/*cirrascale', budget='ai2/allennlp', workspace='ai2/timd')
+#s = gpuscheduler.GantryScheduler('./config/cirrascale.cfg', cluster='ai2/*cirrascale', budget='ai2/allennlp', workspace='ai2/timd')
+s = gpuscheduler.GantryScheduler('./config/austin.cfg', cluster='ai2/jupiter-cirrascale-2', budget='ai2/allennlp', workspace='ai2/timd', weka='oe-training-default:/data/input')
 
 args2 = {}
 args3 = {}
 
-n = 3
+n = 10
 args3['comment'] = [f'"this is test number {i}"' for i in range(n)]
-args3['lr'] = [0.001, 0.003]
+args3['lr'] = [0.001, 0.003, 0.006]
 
 
 args4 = []
