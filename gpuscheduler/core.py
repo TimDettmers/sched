@@ -251,7 +251,6 @@ class GantryScheduler(object):
         with open(init_file, 'w') as f:
             f.writelines(lines)
 
-        print('executing bash')
         out, err = execute_and_return('bash {0}'.format(init_file))
         if err != '':
             print(err)

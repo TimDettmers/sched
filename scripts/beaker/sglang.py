@@ -32,9 +32,13 @@ mem = 32
 home_path = '/data/input/timd'
 base_path = join(home_path, 'git/sched')
 
-pre_cmds = [f'cd {base_path}', "export HOST=$(hostname -I | awk '{print $1}')", f"export MODEL={args.model}"]
+pre_cmds = [f'cd {base_path}', 'printenv', "export HOST=$(hostname -I | awk '{print $1}')", f"export MODEL={args.model}"]
 pre_cmds = pre_cmds + [f'export HF_TOKEN={args.hf_token}']
-pre_cmds = pre_cmds + [f'curl -X POST {args.server_ip}:{args.server_port}/register_model -H \"Content-Type: application/json\" -d \'{{ "ip": \"\'\"$HOST\"\'\", "port": {rdm_port}, "model": \"\'\"$MODEL\"\'\", "uuid": "{args.uuid}", "gpus": {args.gpus}}}\'']
+pre_cmds = pre_cmds + [f'curl -X POST {args.server_ip}:{args.server_port}/register_model -H \"Content-Type: application/json\" -d \
+        \'{{ "ip": \"\'\"$HOST\"\'\", "port": {rdm_port}, "model": \"\'\"$MODEL\"\'\", \
+        "uuid": "{args.uuid}", "gpus": {args.gpus}, \
+        "job_id": \"\'\"$BEAKER_JOB_ID\"\'\" \
+          }}\'']
 
 cmd = f"python -m sglang.launch_server --model-path $MODEL --port {rdm_port} --host $HOST"
 
