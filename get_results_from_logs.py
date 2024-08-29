@@ -88,8 +88,8 @@ if not args.use_json_metrics:
     if metrics is not None:
         for metric in metrics:
             print(metric)
-            regex = re.compile(r'(?<={0}).*(?={1})'.format(metric['start_regex'], metric['end_regex']))
-            #regex = re.compile(r'{0}'.format(metric['start_regex']))
+            #regex = re.compile(r'(?<={0}).*(?={1})'.format(metric['start_regex'], metric['end_regex']))
+            regex = re.compile(r'{0}'.format(metric['start_regex']))
             metric['regex'] = regex
     else:
         regex = re.compile(r'(?<={0}).*(?={1})'.format(args.start, args.end))

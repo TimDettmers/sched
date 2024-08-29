@@ -166,7 +166,7 @@ class GPUWorker(threading.Thread):
 
 
 class GantryScheduler(object):
-    def __init__(self, config_path, cluster, budget, workspace, weka=None):
+    def __init__(self, config_path, cluster, budget, workspace, weka=None, image='ai2/cuda11.8-dev-ubuntu20.04'):
         self.jobs = []
         self.config = {}
         self.init_with_config(config_path)
@@ -174,6 +174,7 @@ class GantryScheduler(object):
         self.budget = budget
         self.weka = weka
         self.workspace = workspace
+        self.image = image
 
     def init_with_config(self, config_path):
         with open(config_path) as f:
@@ -226,10 +227,11 @@ class GantryScheduler(object):
             os.makedirs(log_folder, exist_ok=True)
             if gpus > 8: raise NotImplementedError('Multi-node jobs are currently not supported')
 
-            lines.append((f'gantry run --allow-dirty --cpus {cores} --gpus {gpus} --workspace {self.workspace}'
+            lines.append((f'gantry run --host-networking --allow-dirty --cpus {cores} --gpus {gpus} --workspace {self.workspace}'
                     f' --cluster {self.cluster} {"--preemptible" if preemptible else ""}'
-                    f' {f"--weka={self.weka}" if self.weka is not None else ""}'
-                    f' --no-python --budget {self.budget} -n {cmd_hash} -- bash {run_file}\n\n'))
+                    f' {f"--weka={self.weka}" if self.weka is not None else ""} --beaker-image {self.image}'
+                    f' --no-python --budget {self.budget} -n {join(path, cmd_hash+".log").replace("/", "_")} -- bash {run_file} &\n\n'))
+            lines.append('sleep 0.1\n')
 
             with open(run_file, 'w') as g:
                 g.write('#!/bin/bash\n')
@@ -237,8 +239,11 @@ class GantryScheduler(object):
                 g.write('export PATH="{0}:$PATH"'.format(join(self.config['ANACONDA_HOME'], 'bin')) + '\n')
                 g.write('\n')
                 for cmd_no, cmd in enumerate(cmds[skip_cmds:]):
-                    g.write(f'echo "{cmd}"\n')
-                    g.write(cmd + f' 2>&1 | tee {log_file} \n')
+                    #g.write(f'echo "{cmd}"\n')
+                    if ('export' in cmd) or ('cd' in cmd) or ('curl' in cmd):
+                        g.write(cmd + '\n')
+                    else:
+                        g.write(cmd + f' 2>&1 | tee {log_file} \n')
 
 
         print('writing init file to:')
@@ -246,6 +251,7 @@ class GantryScheduler(object):
         with open(init_file, 'w') as f:
             f.writelines(lines)
 
+        print('executing bash')
         out, err = execute_and_return('bash {0}'.format(init_file))
         if err != '':
             print(err)
