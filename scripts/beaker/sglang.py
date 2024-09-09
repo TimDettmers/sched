@@ -8,17 +8,18 @@ import hashlib
 import glob
 import math
 from itertools import product
-from torch.optim.lr_scheduler import OneCycleLR
 
 from os.path import join
 
 parser = argparse.ArgumentParser(description='Compute script.')
+parser.add_argument('--priority', type=str, default='normal')
 parser.add_argument('--uuid', type=str, default='')
 parser.add_argument('--gpus', type=int, default=1)
 parser.add_argument('--server_ip', type=str, default='jupiter-cs-aus-199.reviz.ai2.in')
 parser.add_argument('--server_port', type=int, default=5000)
 parser.add_argument('--hf_token', type=str, default='')
 parser.add_argument('--model', type=str, default='meta-llama/Meta-Llama-3.1-8B')
+parser.add_argument('--sgl_args_string', type=str, default='')
 
 args = parser.parse_args()
 
@@ -40,11 +41,11 @@ pre_cmds = pre_cmds + [f'curl -X POST {args.server_ip}:{args.server_port}/regist
         "job_id": \"\'\"$BEAKER_JOB_ID\"\'\" \
           }}\'']
 
-cmd = f"python -m sglang.launch_server --model-path $MODEL --port {rdm_port} --host $HOST"
+cmd = f"python -m sglang.launch_server --model-path $MODEL --port {rdm_port} --host $HOST {args.sgl_args_string}"
 
 post_cmds = []
 
 
 cmds = pre_cmds + [cmd] + post_cmds
 s.add_job(logfolder, cmds, cores=cores_per_job, mem=mem, gpus=args.gpus)
-s.run_jobs(gpus_per_node=args.gpus, requeue=False, as_array=True, single_process=True)
+s.run_jobs(gpus_per_node=args.gpus, requeue=False, as_array=True, single_process=True, priority=args.priority)

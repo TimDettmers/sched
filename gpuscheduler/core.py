@@ -193,7 +193,7 @@ class GantryScheduler(object):
         if exclude != '': raise NotImplementedError('exclude are not supported by beaker')
         self.jobs.append([path, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes])
 
-    def run_jobs(self, preemptible=True, as_array=True, sleep_delay_seconds=0, single_process=False, log_id=None, skip_cmds=0, comment=None, begin=None, gpus_per_node=8, requeue=False, requeue_length_hours=4):
+    def run_jobs(self, preemptible=True, as_array=True, sleep_delay_seconds=0, single_process=False, log_id=None, skip_cmds=0, comment=None, begin=None, gpus_per_node=8, requeue=False, requeue_length_hours=4, priority='low'):
 
         if not os.path.exists(self.config['SCRIPT_HISTORY']):
             os.makedirs(self.config['SCRIPT_HISTORY'])
@@ -228,7 +228,7 @@ class GantryScheduler(object):
             if gpus > 8: raise NotImplementedError('Multi-node jobs are currently not supported')
 
             lines.append((f'gantry run --host-networking --allow-dirty --cpus {cores} --gpus {gpus} --workspace {self.workspace}'
-                    f' --cluster {self.cluster} {"--preemptible" if preemptible else ""}'
+                    f' --cluster {self.cluster} {"--preemptible" if preemptible else ""} --priority {priority}'
                     f' {f"--weka={self.weka}" if self.weka is not None else ""} --beaker-image {self.image}'
                     f' --no-python --budget {self.budget} -n {join(path, cmd_hash+".log").replace("/", "_")} -- bash {run_file} &\n\n'))
             lines.append('sleep 0.1\n')
