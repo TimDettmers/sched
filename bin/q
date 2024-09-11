@@ -17,5 +17,5 @@ fi
 query_date=$(date --date="-$days_back day" -I)
 
 
-sacct -X --format="Elapsed,Jobid%18,State,Account,Partition,Reason,NodeList%30" -S $query_date -u $user
+sacct -X --format="Elapsed,Jobid%10,State,Account,Partition,AllocTRES%50,NodeList%10" -S $query_date -u $user
 #sacct -X --format="Elapsed,Jobid%18,State,Account,Partition,Reason,NodeList%30" -S $query_date 

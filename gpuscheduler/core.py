@@ -293,8 +293,7 @@ class HyakScheduler(object):
 
 
         strval = self.jobs[0][2]
-        if not isinstance(strval, str): strval = strval[0]
-        array_id = hashlib.md5(strval.encode('utf-8')).hexdigest() if log_id is None else log_id
+        array_id = cmds_to_hash(strval) if log_id is None else log_id
 
         array_file = join(self.config['SCRIPT_HISTORY'], 'array_init_{0}.sh'.format(array_id))
         array_job_list = join(self.config['SCRIPT_HISTORY'], 'array_jobs_{0}.sh'.format(array_id))

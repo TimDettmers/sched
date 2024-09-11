@@ -20,6 +20,7 @@ parser.add_argument('--server_port', type=int, default=5000)
 parser.add_argument('--hf_token', type=str, default='')
 parser.add_argument('--model', type=str, default='meta-llama/Meta-Llama-3.1-8B')
 parser.add_argument('--sgl_args_string', type=str, default='')
+parser.add_argument('--constraint', type=str, default='[a40|a100|l40|l40s]')
 
 args = parser.parse_args()
 

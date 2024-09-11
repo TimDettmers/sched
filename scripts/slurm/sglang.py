@@ -21,14 +21,14 @@ parser.add_argument('--server_port', type=int, default=5000)
 parser.add_argument('--hf_token', type=str, default='')
 parser.add_argument('--model', type=str, default='Qwen/Qwen2-7B-Instruct')
 parser.add_argument('--sgl_args_string', type=str, default='')
+parser.add_argument('--priority', type=str, default='')
+parser.add_argument('--constraint', type=str, default='[a40|a100|l40|l40s]')
 
 args = parser.parse_args()
 
-#memory, constraint = 10, '"[2080ti|rtx6k|titan|a40|a100]"'
-memory, constraint = 24, '"[rtx6k|titan|a40|a100|l40|l40s]"'
-memory, constraint = 48, '"[a40|a100|l40|l40s]"'
+
 cpus_per_task = 4
-mem = ((1*memory)*(8 if args.gpus > 8 else args.gpus))+20
+mem = (48*(8 if args.gpus > 8 else args.gpus))+20
 seed_offset = 0
 time_hours = 5
 time_minutes = 0
@@ -51,7 +51,7 @@ mem = 32
 home_path = '/data/input/timd'
 base_path = join(home_path, 'git/sched')
 
-pre_cmds = ["nvidia-smi", "printenv", "export HOST=$(hostname -I | awk '{print $2}')", f"export MODEL={args.model}"]
+pre_cmds = ["nvidia-smi", "export HOST=$(hostname -I | awk '{print $2}')", f"export MODEL={args.model}"]
 pre_cmds = pre_cmds + [f'echo $HOST', 'echo $MODEL', 'echo "test"']
 pre_cmds = pre_cmds + [f'export HF_TOKEN={args.hf_token}']
 pre_cmds = pre_cmds + [f'curl -X POST http://{args.server_ip}:{args.server_port}/register_model -H \"Content-Type: application/json\" -d \
@@ -66,5 +66,5 @@ post_cmds = []
 
 
 cmds = pre_cmds + [cmd] + post_cmds
-s.add_job(logfolder, repo, change_dir, cmds, time_hours, False, cores=cpus_per_task, mem=mem, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=args.gpus)
+s.add_job(logfolder, repo, change_dir, cmds, time_hours, False, cores=cpus_per_task, mem=mem, constraint=args.constraint, exclude=exclude, time_minutes=time_minutes, gpus=args.gpus)
 s.run_jobs(gpus_per_node=args.gpus, requeue=False, as_array=False, single_process=True)
