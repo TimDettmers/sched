@@ -67,4 +67,4 @@ post_cmds = []
 
 cmds = pre_cmds + [cmd] + post_cmds
 s.add_job(logfolder, repo, change_dir, cmds, time_hours, False, cores=cpus_per_task, mem=mem, constraint=args.constraint, exclude=exclude, time_minutes=time_minutes, gpus=args.gpus)
-s.run_jobs(gpus_per_node=args.gpus, requeue=False, as_array=False, single_process=True)
+s.run_jobs(gpus_per_node=args.gpus, requeue=False, as_array=False, single_process=True, log_id=args.model.replace('/', '-'))
