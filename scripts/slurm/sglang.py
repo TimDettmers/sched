@@ -27,11 +27,11 @@ parser.add_argument('--constraint', type=str, default='[a40|a100|l40|l40s]')
 args = parser.parse_args()
 
 
-cpus_per_task = 4
 mem = (48*(8 if args.gpus > 8 else args.gpus))+20
 seed_offset = 0
 time_hours = 5
 time_minutes = 0
+cpus_per_task = max(args.gpus, 4)
 
 begin = None
 partition = 'ckpt-all'
