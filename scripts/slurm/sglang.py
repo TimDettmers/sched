@@ -23,6 +23,8 @@ parser.add_argument('--model', type=str, default='Qwen/Qwen2-7B-Instruct')
 parser.add_argument('--sgl_args_string', type=str, default='')
 parser.add_argument('--priority', type=str, default='')
 parser.add_argument('--constraint', type=str, default='[a40|a100|l40|l40s]')
+parser.add_argument('--account', type=str, default='zlab')
+parser.add_argument('--partition', type=str, default='ckpt-all')
 
 args = parser.parse_args()
 
@@ -31,22 +33,19 @@ mem = (48*(8 if args.gpus > 8 else args.gpus))+20
 seed_offset = 0
 time_hours = 5
 time_minutes = 0
-cpus_per_task = max(args.gpus, 4)
+cpus_per_task = 4
 
 begin = None
-partition = 'ckpt-all'
-account = 'zlab'
 
 change_dir = 'sched/'
 repo = 'sched'
-exclude = 'g3091,g3104'
+exclude = ''
 
-s = gpuscheduler.HyakScheduler(account=account, partition=partition, use_gres=False)
+s = gpuscheduler.HyakScheduler(account=args.account, partition=args.partition, use_gres=False)
 
 rdm_port = np.random.randint(12200, 12999, 1)[0]
 logfolder = 'easyapi/sglang/'
 cores_per_job = 4
-mem = 32
 
 home_path = '/data/input/timd'
 base_path = join(home_path, 'git/sched')
@@ -67,4 +66,4 @@ post_cmds = []
 
 cmds = pre_cmds + [cmd] + post_cmds
 s.add_job(logfolder, repo, change_dir, cmds, time_hours, False, cores=cpus_per_task, mem=mem, constraint=args.constraint, exclude=exclude, time_minutes=time_minutes, gpus=args.gpus)
-s.run_jobs(gpus_per_node=args.gpus, requeue=False, as_array=False, single_process=True, log_id=args.model.replace('/', '-'))
+s.run_jobs(gpus_per_node=args.gpus, requeue=False, as_array=False, single_process=True, log_id=args.model.replace('/', '-')+f'_{args.gpus}_{rdm_port}')

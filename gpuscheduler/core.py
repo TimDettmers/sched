@@ -303,8 +303,11 @@ class HyakScheduler(object):
         for i, (path, work_dir, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
             if not as_array:
                 if i % 10 == 0 and i > 0: print('Processing cmd no ', i)
-            nodes = gpus // gpus_per_node
-            nodes += 1 if (gpus % gpus_per_node) > 0 else 0
+            if gpus_per_node == 0:
+                nodes = 1
+            else:
+                nodes = gpus // gpus_per_node
+                nodes += 1 if (gpus % gpus_per_node) > 0 else 0
             if nodes == 0: nodes = 1
             gpus = gpus_per_node if gpus > gpus_per_node else gpus
             if not isinstance(cmds, list): cmds = [cmds]
