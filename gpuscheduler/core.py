@@ -217,8 +217,11 @@ class GantryScheduler(object):
 
             cmd_hash = cmds_to_hash(cmds)
             run_file = join(self.config['SCRIPT_HISTORY'], f'run_{cmd_hash}.sh')
-            nodes = gpus // gpus_per_node
-            nodes += 1 if (gpus % gpus_per_node) > 0 else 0
+            if gpus_per_node == 0:
+                nodes = 1
+            else:
+                nodes = gpus // gpus_per_node
+                nodes += 1 if (gpus % gpus_per_node) > 0 else 0
             if nodes == 0: nodes = 1
             gpus = gpus_per_node if gpus > gpus_per_node else gpus
             if not isinstance(cmds, list): cmds = [cmds]
@@ -243,6 +246,7 @@ class GantryScheduler(object):
                     if ('export' in cmd) or ('cd' in cmd) or ('curl' in cmd):
                         g.write(cmd + '\n')
                     else:
+                        g.write(f'echo {cmd} \n')
                         g.write(cmd + f' 2>&1 | tee {log_file} \n')
 
 

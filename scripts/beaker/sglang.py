@@ -12,7 +12,7 @@ from itertools import product
 from os.path import join
 
 parser = argparse.ArgumentParser(description='Compute script.')
-parser.add_argument('--priority', type=str, default='normal')
+parser.add_argument('--priority', type=str, default='high')
 parser.add_argument('--uuid', type=str, default='')
 parser.add_argument('--gpus', type=int, default=1)
 parser.add_argument('--server_ip', type=str, default='jupiter-cs-aus-199.reviz.ai2.in')
@@ -21,14 +21,15 @@ parser.add_argument('--hf_token', type=str, default='')
 parser.add_argument('--model', type=str, default='meta-llama/Meta-Llama-3.1-8B')
 parser.add_argument('--sgl_args_string', type=str, default='')
 parser.add_argument('--constraint', type=str, default='[a40|a100|l40|l40s]')
+parser.add_argument('--cluster', type=str, default='neptune')
 
 args = parser.parse_args()
 
-s = gpuscheduler.GantryScheduler('./config/austin.cfg', cluster='ai2/jupiter-cirrascale-2', budget='ai2/allennlp', workspace='ai2/timd', weka='oe-training-default:/data/input')
+s = gpuscheduler.GantryScheduler('./config/austin.cfg', cluster=f'ai2/{args.cluster}-cirrascale*', budget='ai2/allennlp', workspace='ai2/timd', weka='oe-training-default:/data/input')
 
 rdm_port = np.random.randint(12200, 12999, 1)[0]
-logfolder = 'sglang/llama8b'
-cores_per_job = 4
+logfolder = f'{args.model}'
+cores_per_job = 4*args.gpus
 mem = 32
 
 home_path = '/data/input/timd'
