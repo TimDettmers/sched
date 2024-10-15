@@ -45,7 +45,7 @@ parser.add_argument('--num-digits', type=int, default=4, help='The significant d
 parser.add_argument('--early-stopping-condition', type=str, default=None, help='If a line with the keyphrase occurs 3 times, the metric gathering is stopped for the log')
 parser.add_argument('--diff', action='store_true', help='Outputs the different hyperparameters used in all configs')
 parser.add_argument('--agg', type=str, default='last', choices=['mean', 'last', 'min', 'max'], help='How to aggregate the regex-matched scores. Default: Last')
-parser.add_argument('--limits', nargs='+', type=int, default=None, help='Sets the [min, max] range of the metric value (two space separated values).')
+parser.add_argument('--limits', nargs='+', type=float, default=None, help='Sets the [min, max] range of the metric value (two space separated values).')
 parser.add_argument('--metric-file', type=str, default=None, help='A metric file which tracks multiple metrics as once.')
 parser.add_argument('--median', action='store_true', help='Use median instead of mean.')
 parser.add_argument('--use_json_metrics', action='store_true', help='Parse all metrics by looking for a line of json.')
@@ -87,7 +87,6 @@ folders = [x[0] for x in os.walk(args.folder_path)]
 if not args.use_json_metrics:
     if metrics is not None:
         for metric in metrics:
-            print(metric)
             #regex = re.compile(r'(?<={0}).*(?={1})'.format(metric['start_regex'], metric['end_regex']))
             regex = re.compile(r'{0}'.format(metric['start_regex']))
             metric['regex'] = regex
@@ -194,10 +193,12 @@ for folder in folders:
                                 if func != '':
                                     val = eval(func)(val)
                                 config['METRICS'][name].append(val)
-                            except:
+                            except Exception as e:
                                 print(line)
                                 print(regex)
+                                print(val)
                                 print(matches[0])
+                                print(e)
                                 continue
             if values is not None:
                 for k, v in values.items():
@@ -420,7 +421,7 @@ banned.update(['{0}_upper'.format(m['name']) for m in metrics])
 banned.update(['{0}_se'.format(m['name']) for m in metrics])
 for index, row in output.iterrows():
     str_config = ''
-    for k, v in row.iteritems():
+    for k, v in row.items():
         if k in banned: continue
         str_config += '{0}: {1: <4}, '.format(k, v)
 

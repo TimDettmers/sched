@@ -58,8 +58,8 @@ gpus_per_node = job_gpus
 #memory, constraint = 48, '"[a100|a40]"'
 port = np.random.randint(12200, 12999, 1)
 memory = 128
-num_seeds = 1
-seed_offset = 2
+num_seeds = 5
+seed_offset = 5
 time_hours = 5
 time_minutes = 0
 
@@ -68,39 +68,44 @@ base_path = join(home_path, 'git/Agentless')
 swebench_path = join(home_path, 'git/SWE-bench')
 checkpoint_base_dir = join(home_path, 'checkpoints')
 
-launch_gpus = 8
-launch_tp = 8
 models = []
 
-#models.append(('Qwen/Qwen2.5-0.5B-Instruct-AWQ', launch_gpus, launch_tp, 1, short_uuid())) #1
-#models.append(('Qwen/Qwen2.5-1.5B-Instruct-AWQ', launch_gpus, launch_tp, 1, short_uuid())) #2
-#models.append(('Qwen/Qwen2.5-14B-Instruct-AWQ', launch_gpus, launch_tp, 7, short_uuid())) # 2
+#models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-0.5B-Instruct-AWQ', 1, 4)) #1
+#models.append(('Qwen2.5-1.5B', 'Qwen/Qwen2.5-1.5B-Instruct-AWQ', 2, 4)) #2
+#models.append(('Qwen2.5-14B', 'Qwen/Qwen2.5-14B-Instruct-AWQ', 2, 4)) # 2
 
-#models.append(('Qwen/Qwen2.5-7B-Instruct-AWQ', launch_gpus, launch_tp, 4, short_uuid())) # 4
-#models.append(('Qwen/Qwen2.5-Coder-7B-Instruct-AWQ', launch_gpus, launch_tp, 4, short_uuid())) # 4
+#models.append(('Qwen2.5-7B', 'Qwen/Qwen2.5-7B-Instruct-AWQ', 4, 4)) # 4
+#models.append(('Qwen2.5-7B-Coder', 'Qwen/Qwen2.5-Coder-7B-Instruct-AWQ', 4)) # 4
 
-models.append(('Qwen/Qwen2.5-32B-Instruct-AWQ', launch_gpus, launch_tp, 16, short_uuid())) # 8
-#models.append(('Qwen/Qwen2.5-72B-Instruct-AWQ', launch_gpus, launch_tp, 36, short_uuid())) # 8
-#models.append(('Qwen/Qwen2.5-3B-Instruct-AWQ', launch_gpus, launch_tp, 2, short_uuid())) # 8
-#models.append(('hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4', launch_gpus, launch_tp, 36, short_uuid())) # 8
-#models.append(('hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4', launch_gpus, launch_tp, 36, short_uuid())) # 8
-#models.append(('TechxGenus/Mistral-Large-Instruct-2407-AWQ', launch_gpus, launch_tp, 36, short_uuid())) # 8
-#models.append(('hugging-quants/Meta-Llama-3.1-405B-Instruct-AWQ-INT4', launch_gpus, launch_tp, 36, short_uuid())) # 8
+#models.append(('Qwen2.5-32B', 'Qwen/Qwen2.5-32B-Instruct-AWQ', 8, 4)) # 8
+#models.append(('Qwen2.5-32B', 'Qwen/Qwen2.5-32B-Instruct', 8, 8)) # 8
+models.append(('Qwen2.5-32B', 'Qwen/Qwen2.5-32B-Instruct', 8, 16)) # 8
+#models.append(('Qwen2.5-72B', 'Qwen/Qwen2.5-72B-Instruct-AWQ', 8, 4)) # 8
+#models.append(('Qwen2.5-72B', 'Qwen/Qwen2.5-72B-Instruct', 8, 8)) # 8
+#models.append(('Qwen2.5-72B', 'Qwen/Qwen2.5-72B-Instruct', 8, 16)) # 8
+#models.append(('Qwen2.5-3B', 'Qwen/Qwen2.5-3B-Instruct-AWQ', 8, 4)) # 8
 
-num_launches = 1
+#models.append(('Mistral_Large-123B', 'TechxGenus/Mistral-Large-Instruct-2407-AWQ', 8, 4)) # 8
+#models.append(('Llama-8B', 'hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4', 8, 4)) # 8
+#models.append(('Llama-70B', 'hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4', 8, 4)) # 8
+#models.append(('Llama-405B', 'hugging-quants/Meta-Llama-3.1-405B-Instruct-AWQ-INT4', 8, 4)) # 8
+
+num_gpus = 16
 #sgl_args = f'--schedule-conservativeness 0.1 --max-prefill-tokens {8*32*1024} --max-num-reqs 64'
-sgl_args = f'--schedule-conservativeness 0.1 --max-num-reqs 64 --mem-fraction-static 0.8'
+sgl_args = f'--schedule-conservativeness 0.1 --max-num-reqs 1024 --mem-fraction-static 0.8'
 if args.launch:
     print('launching models ...')
-    for model, gpus, tp, mem, _ in models:
+    for name, model, tp, bits in models:
         if api.has_model(model) and not args.launch: break
 
-        mem = round(mem/tp)
+        num_launches = round(num_gpus / tp)
         for i in range(num_launches):
-            api.launch_model(model, gpus=gpus, hf_token='', sgl_args_string=f'--tp {tp} {sgl_args}', priority='high', constraint="[l40|l40s|a40]")
+            print(f'launching {i+1}/{num_launches} ...')
+            quant = ' --quantization fp8' if bits == 8 else ''
+            api.launch_model(model, gpus=tp, hf_token='', sgl_args_string=f'--tp {tp} {quant} {sgl_args}', priority='high', constraint="[l40|l40s|a40]")
 
 if not args.dry:
-    for model, gpus, tp, mem, _ in models:
+    for name, model, tp, bits in models:
         while not api.has_model(model):
             print(f'waiting for {model} ...')
             time.sleep(5)
@@ -109,12 +114,15 @@ if not args.dry:
 args2 = {}
 args3 = {}
 
-cpus_per_task = cores_per_job = num_threads = 128
+cpus_per_task = cores_per_job = num_threads = 180
 
-args3['max_samples'] = [10]
-args3['top_n'] = [2]
-args3['num_samples'] = [2]
-args3['limit'] = [16]
+name = logfolder = f'baseline'
+args3['max_samples'] = [20]
+args3['top_n'] = [1]
+args3['num_samples'] = [4]
+args3['limit'] = [256]
+args3['temperature'] = [0.5]
+args3['context_window'] = [20]
 
 
 args4 = []
@@ -164,36 +172,41 @@ else:
         args_prod = new_args
 
 
-name = logfolder = f'test4'
 jobs = []
 pre_cmds = []
+pre_cmds.append('sleep $(((RANDOM % 10)+1))')
 pre_cmds.append(f'export PATH=$PATH:/usr/local/bin/')
 pre_cmds.append(f'export EASY_URL={easy_url}')
 pre_cmds.append(f'export PYTHONPATH={base_path}:{swebench_path}')
-pre_cmds.append(f'cp -r {base_path}/repo_structures /tmp/')
+pre_cmds.append(f'mkdir -p /data/tmp')
+pre_cmds.append(f'cp -r {base_path}/repo_structures /data/tmp/')
 pre_cmds.append(f'cd {base_path}')
-pre_cmds.append('export PROJECT_FILE_LOC=/tmp/repo_structures')
-for i, values in enumerate(args_prod):
-    idval = short_uuid()
-    addtional_args_str = ' '
-    for val in values:
-        addtional_args_str += '{0}' .format(val)
-    for model, gpus, tp, mem, _ in models:
-        model_stripped = model.replace('/', '_')
-        cmds = [] + pre_cmds
-        cmds.append(f'python agentless/fl/localize.py --file_level --related_level --fine_grain_line_level --output_folder {name}/{model_stripped}_{idval}/location --compress --context_window=20 --temperature 0.8 --backend easyapi --model {model} --num_threads {num_threads} --match_partial_paths --max_context_length {32*1024} {addtional_args_str}')
-        cmds.append(f'python agentless/fl/localize.py --merge --output_folder {name}/{model_stripped}_{idval}/location_merged --start_file {name}/{model_stripped}_{idval}/location/loc_outputs.jsonl --max_context_length {32*1024} {addtional_args_str}')
-        cmds.append(f'python agentless/repair/repair.py --loc_file {name}/{model_stripped}_{idval}/location_merged/loc_merged_0-1_outputs.jsonl --output_folder {name}/{model_stripped}_{idval}/repair_run_1 --loc_interval --context_window=20 --cot --diff_format --gen_and_process --backend easyapi --model {model} --num_threads {num_threads} {addtional_args_str}')
-        cmds.append(f'python agentless/repair/repair.py --loc_file {name}/{model_stripped}_{idval}/location_merged/loc_merged_2-3_outputs.jsonl --output_folder {name}/{model_stripped}_{idval}/repair_run_2 --loc_interval --context_window=20 --cot --diff_format --gen_and_process --backend easyapi --model {model} --num_threads {num_threads} {addtional_args_str}')
-        cmds.append(f'python agentless/repair/rerank.py --patch_folder {name}/{model_stripped}_{idval}/repair_run_1,{name}/{model_stripped}_{idval}/repair_run_2 --deduplicate --plausible --output_file {name}/{model_stripped}_{idval}/all_preds.jsonl --num_threads {num_threads} {addtional_args_str}')
-        cmds.append(f'echo "python -m swebench.harness.run_evaluation     --dataset_name princeton-nlp/SWE-bench_Lite     --predictions_path ../Agentless/{name}/{model_stripped}_{idval}/all_preds.jsonl     --max_workers 128     --run_id {name}_{model_stripped}_{idval} --cache_level instance"')
-        cmds.append(f'python log_experiment.py {addtional_args_str} --folder {logfolder} --command \"python -m swebench.harness.run_evaluation     --dataset_name princeton-nlp/SWE-bench_Lite     --predictions_path ../Agentless/{name}/{model_stripped}_{idval}/all_preds.jsonl     --max_workers 120     --run_id {name}_{model_stripped}_{idval} --cache_level instance\"')
+pre_cmds.append('export PROJECT_FILE_LOC=/data/tmp/repo_structures')
+for seed in range(seed_offset, seed_offset+num_seeds):
+    for i, values in enumerate(args_prod):
+        idval = short_uuid()
+        addtional_args_str = ' '
+        for val in values:
+            addtional_args_str += '{0}' .format(val)
+        addtional_args_str += f' --seed {seed}'
+        for model_name, model, tp, bits in models:
+            addtional_args_str += f' --bits {bits} --model_name {model_name}'
+            model_stripped = model_name.replace('/', '_')
+            model_stripped += f'_{bits}bits'
+            cmds = [] + pre_cmds
+            cmds.append(f'python agentless/fl/localize.py --file_level --related_level --fine_grain_line_level --output_folder {name}/{model_stripped}_{idval}/location --compress --backend easyapi --model {model} --num_threads {num_threads} --match_partial_paths --max_context_length {32*1024} {addtional_args_str}')
+            cmds.append(f'python agentless/fl/localize.py --merge --output_folder {name}/{model_stripped}_{idval}/location_merged --start_file {name}/{model_stripped}_{idval}/location/loc_outputs.jsonl --max_context_length {32*1024} {addtional_args_str}')
+            cmds.append(f'python agentless/repair/repair.py --loc_file {name}/{model_stripped}_{idval}/location_merged/loc_merged_0-1_outputs.jsonl --output_folder {name}/{model_stripped}_{idval}/repair_run_1 --loc_interval --cot --diff_format --gen_and_process --backend easyapi --model {model} --num_threads {num_threads} --playground_path /data/tmp/playground {addtional_args_str}')
+            cmds.append(f'python agentless/repair/repair.py --loc_file {name}/{model_stripped}_{idval}/location_merged/loc_merged_2-3_outputs.jsonl --output_folder {name}/{model_stripped}_{idval}/repair_run_2 --loc_interval --cot --diff_format --gen_and_process --backend easyapi --model {model} --num_threads {num_threads} --playground_path /data/tmp/playground {addtional_args_str}')
+            cmds.append(f'python agentless/repair/rerank.py --patch_folder {name}/{model_stripped}_{idval}/repair_run_1,{name}/{model_stripped}_{idval}/repair_run_2 --deduplicate --plausible --output_file {name}/{model_stripped}_{idval}/all_preds.jsonl --num_threads {num_threads} {addtional_args_str}')
+            cmds.append(f'echo "python -m swebench.harness.run_evaluation     --dataset_name princeton-nlp/SWE-bench_Lite     --predictions_path ../Agentless/{name}/{model_stripped}_{idval}/all_preds.jsonl     --max_workers 120     --run_id {name}_{model_stripped}_{idval} --cache_level instance"')
+            cmds.append(f'python log_experiment.py {addtional_args_str} --folder {logfolder} --command \"python -m swebench.harness.run_evaluation     --dataset_name princeton-nlp/SWE-bench_Lite     --predictions_path ../Agentless/{name}/{model_stripped}_{idval}/all_preds.jsonl     --max_workers 120     --run_id {name}_{model_stripped}_{idval} --cache_level instance\"')
 
-        if args.scheduler == 'slurm':
-            s.add_job(logfolder, repo, change_dir, cmds, time_hours, False, cores=cpus_per_task, mem=memory, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=gpus)
-        else:
-            s.add_job(logfolder+f'/{model_stripped}', cmds, 0, False, cores=cpus_per_task, mem=memory, constraint='', exclude='', time_minutes=0, gpus=gpus)
-        jobs.append((cmds))
+            if args.scheduler == 'slurm':
+                s.add_job(logfolder, repo, change_dir, cmds, time_hours, False, cores=cpus_per_task, mem=memory, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=0)
+            else:
+                s.add_job(logfolder+f'/{model_stripped}', cmds, 0, False, cores=cpus_per_task, mem=memory, constraint='', exclude='', time_minutes=0, gpus=0)
+            jobs.append((cmds))
 post_cmds = []
 
 
@@ -208,4 +221,4 @@ if args.dry:
     print('Jobs will be written to: {0}'.format(join(s.config['LOG_HOME'], logfolder)))
 
 if not args.dry:
-    s.run_jobs(begin=begin, gpus_per_node=gpus_per_node, requeue=False, as_array=True, single_process=True)
+    s.run_jobs(begin=begin, gpus_per_node=gpus_per_node, requeue=False, as_array=True, single_process=True, priority='high')

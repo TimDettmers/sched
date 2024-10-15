@@ -116,7 +116,8 @@ if args.ylim is not None:
 
 plt.ylabel(args.namey, fontsize=13*args.fontscale)
 plt.xlabel(args.namex, fontsize=13*args.fontscale)
-ax._legend.set_title(args.category)
+if hasattr(ax, '_legend'):
+    ax._legend.set_title(args.category)
 
 #ax.set_yticklabels(size=args.fontsize-7)
 #ax.set_xticklabels(size=args.fontsize-7)
