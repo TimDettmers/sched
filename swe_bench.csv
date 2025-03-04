@@ -1,0 +1,5 @@
+name,start_regex,end_regex,contains,smaller_is_better,agg,reference_metric_name,value,func
+p,"Percentage resolved: (\d+\.\d+)",,,0,mean,,
+completed,"Instances completed: (\d+)",,,0,mean,,
+unresolved,"Instances unresolved: (\d+)",,,0,mean,,
+resolved,"Instances resolved: (\d+)",,,0,mean,,

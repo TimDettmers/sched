@@ -230,8 +230,17 @@ class GantryScheduler(object):
             os.makedirs(log_folder, exist_ok=True)
             if gpus > 8: raise NotImplementedError('Multi-node jobs are currently not supported')
 
-            lines.append((f'gantry run --host-networking --allow-dirty --cpus {cores} --gpus {gpus} --workspace {self.workspace}'
-                    f' --cluster {self.cluster} {"--preemptible" if preemptible else ""} --priority {priority}'
+            if isinstance(self.cluster, list):
+                cluster = ''
+                for c in self.cluster:
+                    cluster += f'--cluster {c} '
+            else:
+                cluster = '--cluster {self.cluster}'
+
+            gpus = '' if gpus == 0 else '--gpus {gpus}'
+            cores = '' if cores == 0 else '--cpus {cores}'
+            lines.append((f'gantry run --host-networking --allow-dirty {cores} {gpus} --workspace {self.workspace}'
+                    f' {cluster} {"--preemptible" if preemptible else ""} --priority {priority}'
                     f' {f"--weka={self.weka}" if self.weka is not None else ""} --beaker-image {self.image}'
                     f' --no-python --budget {self.budget} -n {join(path, cmd_hash+".log").replace("/", "_")} -- bash {run_file} &\n\n'))
             lines.append('sleep 0.1\n')
@@ -255,6 +264,7 @@ class GantryScheduler(object):
         with open(init_file, 'w') as f:
             f.writelines(lines)
 
+        print('executing ...')
         out, err = execute_and_return('bash {0}'.format(init_file))
         if err != '':
             print(err)

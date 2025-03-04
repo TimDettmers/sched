@@ -1,0 +1,2 @@
+name,start_regex,end_regex,contains,smaller_is_better,agg,early_stopping_metric_name
+Metric,r'Metric value: (\d+\.\d+)',,,0,mean,

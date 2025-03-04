@@ -1,0 +1,6 @@
+{'name': 'resolved', 'start_regex': 'Instances resolved: (\\d+)', 'end_regex': '', 'contains': '', 'smaller_is_better': 0, 'agg': 'mean', 'reference_metric_name': '', 'value': '', 'func': ''}
+{'name': 'unresolved', 'start_regex': 'Instances unresolved: (\\d+)', 'end_regex': '', 'contains': '', 'smaller_is_better': 0, 'agg': 'mean', 'reference_metric_name': '', 'value': '', 'func': ''}
+{'name': 'p', 'start_regex': 'Percentage resolved: (\\d+\\.\\d+)', 'end_regex': '', 'contains': '', 'smaller_is_better': 0, 'agg': 'mean', 'reference_metric_name': '', 'value': '', 'func': ''}
+{'limit': "'{0}'==''"}
+No logged data found!
+Last log file that was processes: /data/input/timd/git/Agentless/results/grid2/0926634acbcac46df03dcfb5590794cb.log

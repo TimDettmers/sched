@@ -47,6 +47,7 @@ parser.add_argument('--diff', action='store_true', help='Outputs the different h
 parser.add_argument('--agg', type=str, default='last', choices=['mean', 'last', 'min', 'max'], help='How to aggregate the regex-matched scores. Default: Last')
 parser.add_argument('--limits', nargs='+', type=float, default=None, help='Sets the [min, max] range of the metric value (two space separated values).')
 parser.add_argument('--metric-file', type=str, default=None, help='A metric file which tracks multiple metrics as once.')
+parser.add_argument('--composite-file', type=str, default=None, help='A metric file which tracks multiple metrics as once.')
 parser.add_argument('--median', action='store_true', help='Use median instead of mean.')
 parser.add_argument('--use_json_metrics', action='store_true', help='Parse all metrics by looking for a line of json.')
 parser.add_argument('--main_json_metrics', nargs='+', type=str, default=None, help='The main metric in the json dictionary.')
@@ -71,6 +72,11 @@ if args.metric_file is not None:
 else:
     primary_metric = 'default'
     smaller_is_better = args.smaller_is_better
+
+composites = None
+if args.composite_file is not None:
+    composites = pd.read_csv(args.composite_file, comment='#', quotechar='"').fillna('')
+    composites = composites.to_dict('records')
 
 if args.use_json_metrics:
     primary_metric = args.main_json_metrics[0]
@@ -305,6 +311,23 @@ for config in configs:
             if idx >= x.size: idx = x.size-1
             x = x[idx]
         config[name] = x
+
+
+if composites is not None:
+    for comp in composites:
+        metrics.append({'name' : comp['name']})
+
+    for config in configs:
+        for comp in composites:
+            values = comp['var'].split(';')
+            values = [v.strip() for v in values if v.strip() != '']
+            var = {}
+            for v in values:
+                var[v] = config['METRICS'][v]
+                var[v] = (var[v][0] if len(var[v]) > 0 else 0)
+            new_val = eval(comp['equation'])
+            config[comp['name']]  = new_val
+
 
 # build dictionary of filter values
 filters = {}
