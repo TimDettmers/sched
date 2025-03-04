@@ -54,7 +54,7 @@ cluster = ['ai2/jupiter-cirrascale-2', 'ai2/neptune-cirrascale', 'ai2/saturn-cir
 if args.scheduler == 'slurm':
     s = gpuscheduler.HyakScheduler(account=account, partition=partition, use_gres=False)
 else:
-    s = gpuscheduler.GantryScheduler('/data/input/timd/git/sched/config/austin.cfg', cluster=cluster, budget='ai2/allennlp', workspace='ai2/timd', weka='oe-training-default:/data/input')
+    s = gpuscheduler.GantryScheduler('/weka/oe-adapt-default/saurabhs/repos/sched/config/austin.cfg', cluster=cluster, budget='ai2/allennlp', workspace='ai2/saurabhs', weka='oe-training-default:/data/input')
 
 job_gpus = 0
 gpus_per_node = job_gpus
@@ -66,7 +66,7 @@ seed_offset = 5
 time_hours = 5
 time_minutes = 0
 
-home_path = '/data/input/timd'
+home_path = '/weka/oe-adapt-default/saurabhs'
 base_path = join(home_path, 'git/ScholarQABench')
 
 models = []
@@ -81,13 +81,15 @@ models = []
 #models.append(('gpt-4o-mini', 'gpt-4o-mini', 4, 16)) # 4
 
 #models.append(('Qwen2.5-Coder-7B', 'Qwen/Qwen2.5-Coder-7B-Instruct', 4, 16)) # 4
-models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-0.5B-Instruct', 1, 16)) # 2
-models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-1.5B-Instruct', 1, 16)) # 2
-models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-3B-Instruct', 1, 16)) # 2
-models.append(('Qwen2.5-7B', 'Qwen/Qwen2.5-7B-Instruct', 2, 16)) # 2
-models.append(('Qwen2.5-14B', 'Qwen/Qwen2.5-14B-Instruct', 2, 16)) # 2
-models.append(('Qwen2.5-32B', 'Qwen/Qwen2.5-32B-Instruct', 4, 16)) # 8
-models.append(('Qwen2.5-72B', 'Qwen/Qwen2.5-72B-Instruct', 8, 16)) # 8
+# models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-0.5B-Instruct', 1, 16)) # 2
+# models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-1.5B-Instruct', 1, 16)) # 2
+# models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-3B-Instruct', 1, 16)) # 2
+# models.append(('Qwen2.5-7B', 'Qwen/Qwen2.5-7B-Instruct', 2, 16)) # 2
+# models.append(('Qwen2.5-14B', 'Qwen/Qwen2.5-14B-Instruct', 2, 16)) # 2
+# models.append(('Qwen2.5-32B', 'Qwen/Qwen2.5-32B-Instruct', 4, 16)) # 8
+# models.append(('Qwen2.5-72B', 'Qwen/Qwen2.5-72B-Instruct', 8, 16)) # 8
+
+models.append(('DeepSeek-R1-Distill-Qwen-7B', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', 2, 16)) # 2
 #models.append(('prometheus-7b', 'prometheus-eval/prometheus-7b-v2.0', 8, 16)) # 8
 #models.append(('DeepSeek-R1-AWQ', 'cognitivecomputations/DeepSeek-R1-AWQ', 8, 4)) # 8
 
@@ -109,6 +111,7 @@ if not args.openai:
     if args.launch:
         print('launching models ...')
         for name, model, tp, bits in models:
+            print(f'launching {name} ...')
             if set_gpus: num_gpus = tp
             if api.has_model(model) and not args.launch: break
             num_req = 512 if not 'awq' in model.lower() else 32
@@ -139,7 +142,8 @@ name = logfolder = f'scholarqa_grid11'
 #args3['model'] = [base.format(params=params) for params in p[:-1]]
 #args3['model'] = [base.format(params=params) for params in p[3:-2]]
 #args3['model'] = [base.format(params=params) for params in p[4:]]
-args3['model'] = [base.format(params=params) for params in p[-1:]]
+args3['model'] = [] #[base.format(params=params) for params in p[:1]]
+args3['model'].append('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B')
 args3['proc'] = [250]
 args3['n'] = [100]
 
@@ -197,7 +201,7 @@ pre_cmds.append('sleep $(((RANDOM % 10)+1))')
 pre_cmds.append(f'export PATH=$PATH:/usr/local/bin/')
 #pre_cmds.append(f'export EASY_URL={easy_url}')
 #pre_cmds.append(f'export PYTHONPATH={base_path}:{swebench_path}')
-pre_cmds.append(f'source /data/input/timd/.bashrc')
+pre_cmds.append(f'source /weka/oe-adapt-default/saurabhs/.bashrc')
 pre_cmds.append(f'eval "$(conda shell.bash hook)"')
 #pre_cmds.append(f'mkdir -p /data/tmp')
 #pre_cmds.append(f'cp -r {base_path}/repo_structures /data/tmp/')
