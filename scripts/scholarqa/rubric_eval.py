@@ -142,7 +142,7 @@ name = logfolder = f'scholarqa_grid11'
 #args3['model'] = [base.format(params=params) for params in p[:-1]]
 #args3['model'] = [base.format(params=params) for params in p[3:-2]]
 #args3['model'] = [base.format(params=params) for params in p[4:]]
-args3['model'] = [] #[base.format(params=params) for params in p[:1]]
+args3['model'] = [] # [base.format(params=params) for params in p[:1]]
 args3['model'].append('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B')
 args3['proc'] = [250]
 args3['n'] = [100]
