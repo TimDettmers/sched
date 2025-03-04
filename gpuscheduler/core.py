@@ -230,6 +230,7 @@ class GantryScheduler(object):
             os.makedirs(log_folder, exist_ok=True)
             if gpus > 8: raise NotImplementedError('Multi-node jobs are currently not supported')
 
+            print(f'Cluster: {self.cluster}')
             if isinstance(self.cluster, list):
                 cluster = ''
                 for c in self.cluster:
