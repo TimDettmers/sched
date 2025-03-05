@@ -28,7 +28,7 @@ parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--launch', action='store_true')
 parser.add_argument('--openai', action='store_true')
 parser.add_argument('--scheduler', type=str, default='beaker')
-parser.add_argument('--cluster', type=str, default='saturn')
+parser.add_argument('--cluster', type=str, default='ai2/saturn-cirrascale')
 parser.add_argument('--p', type=float, default=1.0, help='Probability with which to select a configuration.')
 args = parser.parse_args()
 
@@ -50,11 +50,11 @@ account = 'zlab'
 #account = 'efml'
 
 
-cluster = ['ai2/jupiter-cirrascale-2', 'ai2/neptune-cirrascale', 'ai2/saturn-cirrascale']
+# cluster = ['ai2/jupiter-cirrascale-2', 'ai2/neptune-cirrascale', 'ai2/saturn-cirrascale']
 if args.scheduler == 'slurm':
     s = gpuscheduler.HyakScheduler(account=account, partition=partition, use_gres=False)
 else:
-    s = gpuscheduler.GantryScheduler('/weka/oe-adapt-default/saurabhs/repos/sched/config/austin.cfg', cluster=cluster, budget='ai2/allennlp', workspace='ai2/saurabhs', weka='oe-training-default:/data/input')
+    s = gpuscheduler.GantryScheduler('/weka/oe-adapt-default/saurabhs/repos/sched/config/austin.cfg', cluster=args.cluster, budget='ai2/allennlp', workspace='ai2/saurabhs', weka='oe-adapt-default:/data/input')
 
 job_gpus = 0
 gpus_per_node = job_gpus
@@ -66,8 +66,8 @@ seed_offset = 5
 time_hours = 5
 time_minutes = 0
 
-home_path = '/weka/oe-adapt-default/saurabhs'
-base_path = join(home_path, 'git/ScholarQABench')
+home_path = 'data/input/saurabhs'
+base_path = join(home_path, 'repos/nora_adapt')
 
 models = []
 
@@ -201,13 +201,13 @@ pre_cmds.append('sleep $(((RANDOM % 10)+1))')
 pre_cmds.append(f'export PATH=$PATH:/usr/local/bin/')
 #pre_cmds.append(f'export EASY_URL={easy_url}')
 #pre_cmds.append(f'export PYTHONPATH={base_path}:{swebench_path}')
-pre_cmds.append(f'source /weka/oe-adapt-default/saurabhs/.bashrc')
+pre_cmds.append(f'source {home_path}/.bashrc')
 pre_cmds.append(f'eval "$(conda shell.bash hook)"')
 #pre_cmds.append(f'mkdir -p /data/tmp')
 #pre_cmds.append(f'cp -r {base_path}/repo_structures /data/tmp/')
 pre_cmds.append(f'cd {base_path}')
-pre_cmds.append(f'export BEAKER_TOKEN=4jEJObA+dQIm7Qfn')
-pre_cmds.append(f'export BEAKER_TOKEN=4jEJObA+dQIm7Qfn')
+pre_cmds.append(f'ls -la')
+pre_cmds.append(f'export BEAKER_TOKEN=+B+Vhnbwacnx5t/z')
 #pre_cmds.append('export PROJECT_FILE_LOC=/data/tmp/repo_structures')
 cmd = 'python synthetic_rubric_tuning.py     --qa-dir data/scholarqa_cs/src_answers     --test-config data/scholarqa_cs/test_configs_snippets.json     --rubrics --snippets'
 for seed in range(seed_offset, seed_offset+num_seeds):
@@ -232,4 +232,4 @@ if args.dry:
     print('Jobs will be written to: {0}'.format(join(s.config['LOG_HOME'], logfolder)))
 
 if not args.dry:
-    s.run_jobs(begin=begin, gpus_per_node=gpus_per_node, requeue=False, as_array=True, single_process=True, priority='high')
+    s.run_jobs(begin=begin, gpus_per_node=gpus_per_node, requeue=False, as_array=True, single_process=True, priority='normal')

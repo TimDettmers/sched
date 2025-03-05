@@ -171,6 +171,9 @@ class GantryScheduler(object):
         self.config = {}
         self.init_with_config(config_path)
         self.cluster = cluster
+        print(f'Cluster: {self.cluster}')
+        print("Cluster type: ", type(self.cluster))
+        print("Cluster is a list: ", isinstance(self.cluster, list))
         self.budget = budget
         self.weka = weka
         self.workspace = workspace
@@ -236,7 +239,7 @@ class GantryScheduler(object):
                 for c in self.cluster:
                     cluster += f'--cluster {c} '
             else:
-                cluster = '--cluster {self.cluster}'
+                cluster = f'--cluster {self.cluster}'
 
             gpus = '' if gpus == 0 else '--gpus {gpus}'
             cores = '' if cores == 0 else '--cpus {cores}'
