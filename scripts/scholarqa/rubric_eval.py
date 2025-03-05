@@ -54,7 +54,7 @@ account = 'zlab'
 if args.scheduler == 'slurm':
     s = gpuscheduler.HyakScheduler(account=account, partition=partition, use_gres=False)
 else:
-    s = gpuscheduler.GantryScheduler('/weka/oe-adapt-default/saurabhs/repos/sched/config/austin.cfg', cluster=args.cluster, budget='ai2/allennlp', workspace='ai2/saurabhs', weka='oe-adapt-default:/data/input')
+    s = gpuscheduler.GantryScheduler('/weka/oe-adapt-default/saurabhs/repos/sched/config/austin.cfg', cluster=args.cluster, budget='ai2/allennlp', workspace='ai2/saurabhs', weka='oe-adapt-default:/weka/oe-adapt-default')
 
 job_gpus = 0
 gpus_per_node = job_gpus
@@ -66,7 +66,7 @@ seed_offset = 5
 time_hours = 5
 time_minutes = 0
 
-home_path = 'data/input/saurabhs'
+home_path = '/weka/oe-adapt-default/saurabhs'
 base_path = join(home_path, 'repos/nora_adapt')
 
 models = []
@@ -205,8 +205,8 @@ pre_cmds.append(f'source {home_path}/.bashrc')
 pre_cmds.append(f'eval "$(conda shell.bash hook)"')
 #pre_cmds.append(f'mkdir -p /data/tmp')
 #pre_cmds.append(f'cp -r {base_path}/repo_structures /data/tmp/')
-pre_cmds.append(f'cd {base_path}')
 pre_cmds.append(f'ls -la')
+pre_cmds.append(f'cd {base_path}')
 pre_cmds.append(f'export BEAKER_TOKEN=+B+Vhnbwacnx5t/z')
 #pre_cmds.append('export PROJECT_FILE_LOC=/data/tmp/repo_structures')
 cmd = 'python synthetic_rubric_tuning.py     --qa-dir data/scholarqa_cs/src_answers     --test-config data/scholarqa_cs/test_configs_snippets.json     --rubrics --snippets'
