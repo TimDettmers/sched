@@ -1,2 +1,2 @@
 name,var,equation
-p2, resolved;, f"{var['resolved']/300}"
+range, resolved;, f"{var['resolved']/300}"

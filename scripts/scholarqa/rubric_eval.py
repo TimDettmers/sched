@@ -56,6 +56,7 @@ if args.scheduler == 'slurm':
 else:
     s = gpuscheduler.GantryScheduler('/data/input/timd/git/sched/config/austin.cfg', cluster=cluster, budget='ai2/allennlp', workspace='ai2/timd', weka='oe-training-default:/data/input')
 
+offset = 4
 job_gpus = 0
 gpus_per_node = job_gpus
 #memory, constraint = 48, '"[a100|a40]"'
@@ -81,15 +82,20 @@ models = []
 #models.append(('gpt-4o-mini', 'gpt-4o-mini', 4, 16)) # 4
 
 #models.append(('Qwen2.5-Coder-7B', 'Qwen/Qwen2.5-Coder-7B-Instruct', 4, 16)) # 4
-models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-0.5B-Instruct', 1, 16)) # 2
-models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-1.5B-Instruct', 1, 16)) # 2
-models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-3B-Instruct', 1, 16)) # 2
-models.append(('Qwen2.5-7B', 'Qwen/Qwen2.5-7B-Instruct', 2, 16)) # 2
-models.append(('Qwen2.5-14B', 'Qwen/Qwen2.5-14B-Instruct', 2, 16)) # 2
-models.append(('Qwen2.5-32B', 'Qwen/Qwen2.5-32B-Instruct', 4, 16)) # 8
-models.append(('Qwen2.5-72B', 'Qwen/Qwen2.5-72B-Instruct', 8, 16)) # 8
+#models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-0.5B-Instruct', 1, 16)) # 2
+#models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-1.5B-Instruct', 1, 16)) # 2
+#models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-3B-Instruct', 1, 16)) # 2
+#models.append(('Qwen2.5-7B', 'Qwen/Qwen2.5-7B-Instruct', 2, 16)) # 2
+#models.append(('Qwen2.5-14B', 'Qwen/Qwen2.5-14B-Instruct', 2, 16)) # 2
+#models.append(('Qwen2.5-32B', 'Qwen/Qwen2.5-32B-Instruct', 4, 16)) # 8
+#models.append(('Qwen2.5-72B', 'Qwen/Qwen2.5-72B-Instruct', 8, 16)) # 8
 #models.append(('prometheus-7b', 'prometheus-eval/prometheus-7b-v2.0', 8, 16)) # 8
 #models.append(('DeepSeek-R1-AWQ', 'cognitivecomputations/DeepSeek-R1-AWQ', 8, 4)) # 8
+
+models.append(('R1-distill-7B', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B', 2, 16))
+#models.append(('R1-distill-7B', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', 2, 16))
+#models.append(('R1-distill-7B', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-14B', 2, 16))
+#models.append(('R1-distill-7B', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B', 4, 16))
 
 #models.append(('Nemotron-70B', 'nvidia/Llama-3.1-Nemotron-70B-Instruct-HF', 8, 16))
 #models.append(('Mistral_Large-123B', 'SillyTilly/Mistral-Large-Instruct-2407', 8, 16))
@@ -113,10 +119,12 @@ if not args.openai:
             if api.has_model(model) and not args.launch: break
             num_req = 512 if not 'awq' in model.lower() else 32
             sgl_args = f'--allow-auto-truncate --grammar-backend xgrammar'
+            #if 'r1' in model.lower():
+                #sgl_args += ' --reasoning-parser deepseek-r1'
 
             #num_launches = num_gpus//tp
             for i in range(num_launches):
-                print(f'launching {i+1}/{num_launches} ...')
+                print(f'launching {model}: {i+1}/{num_launches} ...')
                 quant = ' --quantization fp8' if bits == 8 else ''
                 api.launch_model(model, gpus=tp, cluster=cluster, hf_token=hf_token, sgl_args_string=f'--tp {tp} {quant} --trust-remote-code {sgl_args}', priority='high', constraint="[l40|l40s|a40]")
 
@@ -139,7 +147,8 @@ name = logfolder = f'scholarqa_grid11'
 #args3['model'] = [base.format(params=params) for params in p[:-1]]
 #args3['model'] = [base.format(params=params) for params in p[3:-2]]
 #args3['model'] = [base.format(params=params) for params in p[4:]]
-args3['model'] = [base.format(params=params) for params in p[-1:]]
+#args3['model'] = [base.format(params=params) for params in p[-1:]]
+args3['model'] = [m[1] for m in models]
 args3['proc'] = [250]
 args3['n'] = [100]
 
@@ -209,6 +218,7 @@ cmd = 'python synthetic_rubric_tuning.py     --qa-dir data/scholarqa_cs/src_answ
 for seed in range(seed_offset, seed_offset+num_seeds):
     for i, values in enumerate(args_prod):
         idval = short_uuid()
+        i = i + offset
         cmds = pre_cmds + [f'redis-server --port {6379+i} &', 'sleep 5'] + [cmd + ''.join(values) + f' --store {logfolder}_{i} --redis_db {i} --redis_port {6379+i}']
         print(i, cmds[-1])
 
