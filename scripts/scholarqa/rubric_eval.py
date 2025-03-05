@@ -208,6 +208,8 @@ pre_cmds.append(f'eval "$(conda shell.bash hook)"')
 pre_cmds.append(f'ls -la')
 pre_cmds.append(f'cd {base_path}')
 pre_cmds.append(f'export BEAKER_TOKEN=+B+Vhnbwacnx5t/z')
+pre_cmds.append(f'source $(conda info --base)/etc/profile.d/conda.sh')
+pre_cmds.append(f'conda activate megatoken')
 #pre_cmds.append('export PROJECT_FILE_LOC=/data/tmp/repo_structures')
 cmd = 'python synthetic_rubric_tuning.py     --qa-dir data/scholarqa_cs/src_answers     --test-config data/scholarqa_cs/test_configs_snippets.json     --rubrics --snippets'
 for seed in range(seed_offset, seed_offset+num_seeds):
