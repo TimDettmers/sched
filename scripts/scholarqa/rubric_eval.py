@@ -50,11 +50,11 @@ account = 'zlab'
 #account = 'efml'
 
 
-# cluster = ['ai2/jupiter-cirrascale-2', 'ai2/neptune-cirrascale', 'ai2/saturn-cirrascale']
+cluster = ['ai2/neptune-cirrascale', 'ai2/saturn-cirrascale'] # 'ai2/jupiter-cirrascale-2']
 if args.scheduler == 'slurm':
     s = gpuscheduler.HyakScheduler(account=account, partition=partition, use_gres=False)
 else:
-    s = gpuscheduler.GantryScheduler('/weka/oe-adapt-default/saurabhs/repos/sched/config/austin.cfg', cluster=args.cluster, budget='ai2/allennlp', workspace='ai2/saurabhs', weka='oe-adapt-default:/weka/oe-adapt-default')
+    s = gpuscheduler.GantryScheduler('/weka/oe-adapt-default/saurabhs/repos/sched/config/austin.cfg', cluster=cluster, budget='ai2/allennlp', workspace='ai2/saurabhs', weka='oe-adapt-default:/weka/oe-adapt-default')
 
 job_gpus = 0
 gpus_per_node = job_gpus
@@ -81,15 +81,19 @@ models = []
 #models.append(('gpt-4o-mini', 'gpt-4o-mini', 4, 16)) # 4
 
 #models.append(('Qwen2.5-Coder-7B', 'Qwen/Qwen2.5-Coder-7B-Instruct', 4, 16)) # 4
-# models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-0.5B-Instruct', 1, 16)) # 2
-# models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-1.5B-Instruct', 1, 16)) # 2
-# models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-3B-Instruct', 1, 16)) # 2
-# models.append(('Qwen2.5-7B', 'Qwen/Qwen2.5-7B-Instruct', 2, 16)) # 2
-# models.append(('Qwen2.5-14B', 'Qwen/Qwen2.5-14B-Instruct', 2, 16)) # 2
+models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-0.5B-Instruct', 1, 16)) # 2
+models.append(('Qwen2.5-1.5B', 'Qwen/Qwen2.5-1.5B-Instruct', 1, 16)) # 2
+models.append(('Qwen2.5-3B', 'Qwen/Qwen2.5-3B-Instruct', 1, 16)) # 2
+models.append(('Qwen2.5-7B', 'Qwen/Qwen2.5-7B-Instruct', 2, 16)) # 2
+models.append(('Qwen2.5-14B', 'Qwen/Qwen2.5-14B-Instruct', 2, 16)) # 2
 # models.append(('Qwen2.5-32B', 'Qwen/Qwen2.5-32B-Instruct', 4, 16)) # 8
 # models.append(('Qwen2.5-72B', 'Qwen/Qwen2.5-72B-Instruct', 8, 16)) # 8
 
-models.append(('DeepSeek-R1-Distill-Qwen-7B', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', 2, 16)) # 2
+# models.append(('DeepSeek-R1-Distill-Qwen-72B', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-72B', 4, 16)) # 2
+models.append(('DeepSeek-R1-Distill-Qwen-32B', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B', 4, 16)) # 2
+models.append(('Qwen2.5-32B', 'Qwen/Qwen2.5-32B-Instruct', 4, 16))
+models.append(('QwQ-32B', 'Qwen/QwQ-32B', 4, 16))
+
 #models.append(('prometheus-7b', 'prometheus-eval/prometheus-7b-v2.0', 8, 16)) # 8
 #models.append(('DeepSeek-R1-AWQ', 'cognitivecomputations/DeepSeek-R1-AWQ', 8, 4)) # 8
 
@@ -111,6 +115,10 @@ if not args.openai:
     if args.launch:
         print('launching models ...')
         for name, model, tp, bits in models:
+            #if api.has_model(model):
+            #    print(f'{name} already exists')
+            #    continue
+
             print(f'launching {name} ...')
             if set_gpus: num_gpus = tp
             if api.has_model(model) and not args.launch: break
@@ -121,7 +129,7 @@ if not args.openai:
             for i in range(num_launches):
                 print(f'launching {i+1}/{num_launches} ...')
                 quant = ' --quantization fp8' if bits == 8 else ''
-                api.launch_model(model, gpus=tp, cluster=cluster, hf_token=hf_token, sgl_args_string=f'--tp {tp} {quant} --trust-remote-code {sgl_args}', priority='high', constraint="[l40|l40s|a40]")
+                api.launch_model(model, gpus=tp, hf_token=hf_token, sgl_args_string=f'--tp {tp} {quant} --trust-remote-code {sgl_args}', priority='normal', constraint="[l40|l40s|a40]", cluster=cluster)
 
     if not args.dry:
         for name, model, tp, bits in models:
@@ -137,13 +145,11 @@ cpus_per_task = cores_per_job = num_threads = 0
 
 
 base = 'Qwen/Qwen2.5-{params}B-Instruct'
-p = [0.5, 1.5, 3, 7, 14, 32, 72]
-name = logfolder = f'scholarqa_grid11'
-#args3['model'] = [base.format(params=params) for params in p[:-1]]
-#args3['model'] = [base.format(params=params) for params in p[3:-2]]
-#args3['model'] = [base.format(params=params) for params in p[4:]]
-args3['model'] = [] # [base.format(params=params) for params in p[:1]]
-args3['model'].append('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B')
+p = [0.5, 1.5, 3, 7, 14, 32]
+name = logfolder = f'scholarqa_2'
+args3['model'] = [base.format(params=params) for params in p]
+args3['model'].append('Qwen/QwQ-32B')
+args3['model'].append('deepseek-ai/DeepSeek-R1-Distill-Qwen-32B')
 args3['proc'] = [250]
 args3['n'] = [100]
 
@@ -197,25 +203,26 @@ else:
 
 jobs = []
 pre_cmds = []
+
+
+rdb_dir = '/weka/oe-adapt-default/saurabhs/repos/nora_adapt/rdb'
+
 pre_cmds.append('sleep $(((RANDOM % 10)+1))')
 pre_cmds.append(f'export PATH=$PATH:/usr/local/bin/')
-#pre_cmds.append(f'export EASY_URL={easy_url}')
-#pre_cmds.append(f'export PYTHONPATH={base_path}:{swebench_path}')
-pre_cmds.append(f'source {home_path}/.bashrc')
+pre_cmds.append(f'source /data/input/timd/.bashrc')
 pre_cmds.append(f'eval "$(conda shell.bash hook)"')
-#pre_cmds.append(f'mkdir -p /data/tmp')
-#pre_cmds.append(f'cp -r {base_path}/repo_structures /data/tmp/')
-pre_cmds.append(f'ls -la')
 pre_cmds.append(f'cd {base_path}')
+pre_cmds.append(f'mkdir -p {rdb_dir}')
+
 pre_cmds.append(f'export BEAKER_TOKEN=+B+Vhnbwacnx5t/z')
-pre_cmds.append(f'source $(conda info --base)/etc/profile.d/conda.sh')
-pre_cmds.append(f'conda activate megatoken')
-#pre_cmds.append('export PROJECT_FILE_LOC=/data/tmp/repo_structures')
 cmd = 'python synthetic_rubric_tuning.py     --qa-dir data/scholarqa_cs/src_answers     --test-config data/scholarqa_cs/test_configs_snippets.json     --rubrics --snippets'
 for seed in range(seed_offset, seed_offset+num_seeds):
     for i, values in enumerate(args_prod):
         idval = short_uuid()
-        cmds = pre_cmds + [f'redis-server --port {6379+i} &', 'sleep 5'] + [cmd + ''.join(values) + f' --store {logfolder}_{i} --redis_db {i} --redis_port {6379+i}']
+        redis_data_dir = f'{rdb_dir}/redis_{idval}'
+        pre_cmds.append(f'mkdir -p {redis_data_dir}')
+
+        cmds = pre_cmds + [f'redis-server --port {6379+i} --dir {redis_data_dir} --dbfilename dump.rdb &', 'sleep 10'] + [cmd + ''.join(values) + f' --store {logfolder}_{i} --redis_db {i} --redis_port {6379+i}']
         print(i, cmds[-1])
 
         if args.scheduler == 'slurm':
