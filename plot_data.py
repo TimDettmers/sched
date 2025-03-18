@@ -29,6 +29,7 @@ parser.add_argument('--scale', type=float, default=None, help='Multiply metric b
 parser.add_argument('--ylim', nargs='+', type=float, default=None, help='Sets the [min, max] range of the metric value (two space separated values).')
 parser.add_argument('--rename', type=str, nargs='+', default='', help='Argument(s) which should be kept by value (arg=value). Multiple arguments separated with a comma.')
 parser.add_argument('--fontscale', type=float, default=1.0, help='Filter out all the scores except the top n entries.')
+parser.add_argument('--handle-missing', type=str, default='keep', help='How to handle missing values: "drop" to remove rows with NaN, "keep" to keep them, "zero" to fill with 0', choices=['drop', 'keep', 'zero'])
 
 args = parser.parse_args()
 
@@ -47,7 +48,19 @@ if not os.path.exists(os.path.dirname(args.out)):
     os.makedirs(os.path.dirname(args.out))
 
 df = pd.read_csv(args.csv, sep='\t')
-df = df.fillna(False)
+# Handle missing values according to the specified option
+if args.handle_missing == 'drop':
+    # Drop rows where either plotx or ploty has missing values
+    df = df.dropna(subset=[args.plotx, args.ploty])
+elif args.handle_missing == 'zero':
+    # Fill missing values with 0
+    df[args.ploty] = df[args.ploty].fillna(0)
+    df[args.plotx] = df[args.plotx].fillna(0)
+else:  # 'keep' or any other value
+    # Replace NaN with False only for non-numeric columns
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            df[col] = df[col].fillna(False)
 
 rename_keys = [] if args.rename == '' else args.rename
 for r in rename_keys:

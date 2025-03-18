@@ -189,12 +189,12 @@ class GantryScheduler(object):
         pass
 
 
-    def add_job(self, path, cmds, time_hours=0, fp16=False, gpus=1, mem=32, cores=6, constraint='', exclude='', time_minutes=0):
+    def add_job(self, path, cmds, time_hours=0, fp16=False, gpus=1, mem=32, cores=6, constraint='', exclude='', time_minutes=0, description="."):
         if constraint != '': raise NotImplementedError('contraint not supported by beaker')
         if time_minutes != 0: raise NotImplementedError('time limits are not supported by beaker')
         if time_hours != 0: raise NotImplementedError('time limits are not supported by beaker')
         if exclude != '': raise NotImplementedError('exclude are not supported by beaker')
-        self.jobs.append([path, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes])
+        self.jobs.append([path, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes, description])
 
     def run_jobs(self, preemptible=True, as_array=True, sleep_delay_seconds=0, single_process=False, log_id=None, skip_cmds=0, comment=None, begin=None, gpus_per_node=8, requeue=False, requeue_length_hours=4, priority='low'):
 
@@ -212,7 +212,7 @@ class GantryScheduler(object):
         lines = []
         lines.append('#!/bin/bash\n')
         lines.append('#\n')
-        for i, (path, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes) in enumerate(self.jobs):
+        for i, (path, cmds, time_hours, fp16, gpus, mem, cores, constraint, exclude, time_minutes, description) in enumerate(self.jobs):
             if not as_array:
                 if i % 10 == 0 and i > 0: print('Processing cmd no ', i)
 
@@ -242,7 +242,7 @@ class GantryScheduler(object):
 
             gpus = '' if gpus == 0 else '--gpus {gpus}'
             cores = '' if cores == 0 else '--cpus {cores}'
-            lines.append((f'gantry run --host-networking --allow-dirty {cores} {gpus} --workspace {self.workspace}'
+            lines.append((f'gantry run --host-networking --allow-dirty {cores} {gpus} --workspace {self.workspace} --description {description}'
                     f' {cluster} {"--preemptible" if preemptible else ""} --priority {priority}'
                     f' {f"--weka={self.weka}" if self.weka is not None else ""} --beaker-image {self.image}'
                     f' --no-python --budget {self.budget} -n {join(path, cmd_hash+".log").replace("/", "_")} -- bash {run_file} &\n\n'))

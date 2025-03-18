@@ -50,7 +50,7 @@ account = 'zlab'
 #account = 'efml'
 
 
-cluster = ['ai2/neptune-cirrascale', 'ai2/saturn-cirrascale'] # 'ai2/jupiter-cirrascale-2']
+cluster = ['ai2/neptune-cirrascale', 'ai2/saturn-cirrascale', 'ai2/jupiter-cirrascale-2']
 if args.scheduler == 'slurm':
     s = gpuscheduler.HyakScheduler(account=account, partition=partition, use_gres=False)
 else:
@@ -81,18 +81,22 @@ models = []
 #models.append(('gpt-4o-mini', 'gpt-4o-mini', 4, 16)) # 4
 
 #models.append(('Qwen2.5-Coder-7B', 'Qwen/Qwen2.5-Coder-7B-Instruct', 4, 16)) # 4
-models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-0.5B-Instruct', 1, 16)) # 2
-models.append(('Qwen2.5-1.5B', 'Qwen/Qwen2.5-1.5B-Instruct', 1, 16)) # 2
-models.append(('Qwen2.5-3B', 'Qwen/Qwen2.5-3B-Instruct', 1, 16)) # 2
-models.append(('Qwen2.5-7B', 'Qwen/Qwen2.5-7B-Instruct', 2, 16)) # 2
+#models.append(('Qwen2.5-0.5B', 'Qwen/Qwen2.5-0.5B-Instruct', 1, 16)) # 2
+#models.append(('Qwen2.5-1.5B', 'Qwen/Qwen2.5-1.5B-Instruct', 1, 16)) # 2
+#models.append(('Qwen2.5-3B', 'Qwen/Qwen2.5-3B-Instruct', 1, 16)) # 2
+#models.append(('Qwen2.5-7B', 'Qwen/Qwen2.5-7B-Instruct', 2, 16)) # 2
 models.append(('Qwen2.5-14B', 'Qwen/Qwen2.5-14B-Instruct', 2, 16)) # 2
-# models.append(('Qwen2.5-32B', 'Qwen/Qwen2.5-32B-Instruct', 4, 16)) # 8
+#models.append(('Qwen2.5-32B', 'Qwen/Qwen2.5-32B-Instruct', 4, 16)) # 8
 # models.append(('Qwen2.5-72B', 'Qwen/Qwen2.5-72B-Instruct', 8, 16)) # 8
 
 # models.append(('DeepSeek-R1-Distill-Qwen-72B', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-72B', 4, 16)) # 2
-models.append(('DeepSeek-R1-Distill-Qwen-32B', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B', 4, 16)) # 2
-models.append(('Qwen2.5-32B', 'Qwen/Qwen2.5-32B-Instruct', 4, 16))
-models.append(('QwQ-32B', 'Qwen/QwQ-32B', 4, 16))
+#models.append(('DeepSeek-R1-Distill-Qwen-32B', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B', 4, 16)) # 2
+#models.append(('Qwen2.5-32B', 'Qwen/Qwen2.5-32B-Instruct', 4, 16))
+#models.append(('QwQ-32B', 'Qwen/QwQ-32B', 4, 16))
+
+#models.append(('OLMo2-7B', 'allenai/OLMo-2-1124-7B-Instruct', 2, 16))
+#models.append(('OLMo2-13B', 'allenai/OLMo-2-1124-13B-Instruct', 2, 16))
+#models.append(('OLMo2-32B', 'allenai/OLMo-2-0325-32B-Instruct', 4, 16))
 
 #models.append(('prometheus-7b', 'prometheus-eval/prometheus-7b-v2.0', 8, 16)) # 8
 #models.append(('DeepSeek-R1-AWQ', 'cognitivecomputations/DeepSeek-R1-AWQ', 8, 4)) # 8
@@ -129,7 +133,7 @@ if not args.openai:
             for i in range(num_launches):
                 print(f'launching {i+1}/{num_launches} ...')
                 quant = ' --quantization fp8' if bits == 8 else ''
-                api.launch_model(model, gpus=tp, hf_token=hf_token, sgl_args_string=f'--tp {tp} {quant} --trust-remote-code {sgl_args}', priority='normal', constraint="[l40|l40s|a40]", cluster=cluster)
+                api.launch_model(model, gpus=tp, hf_token=hf_token, sgl_args_string=f'--tp {tp} {quant} --trust-remote-code {sgl_args}', priority='high', constraint="[l40|l40s|a40]", cluster=cluster)
 
     if not args.dry:
         for name, model, tp, bits in models:
@@ -147,10 +151,11 @@ cpus_per_task = cores_per_job = num_threads = 0
 base = 'Qwen/Qwen2.5-{params}B-Instruct'
 p = [0.5, 1.5, 3, 7, 14, 32]
 name = logfolder = f'scholarqa_2'
-args3['model'] = [base.format(params=params) for params in p]
-args3['model'].append('Qwen/QwQ-32B')
-args3['model'].append('deepseek-ai/DeepSeek-R1-Distill-Qwen-32B')
-args3['proc'] = [250]
+#args3['model'] = [base.format(params=params) for params in p[1:]]
+args3['model'] = ['Qwen/Qwen2.5-14B-Instruct']
+#args3['model'].append('Qwen/QwQ-32B')
+#args3['model'].append('deepseek-ai/DeepSeek-R1-Distill-Qwen-32B')
+args3['proc'] = [20]
 args3['n'] = [100]
 
 
@@ -215,6 +220,8 @@ pre_cmds.append(f'cd {base_path}')
 pre_cmds.append(f'mkdir -p {rdb_dir}')
 
 pre_cmds.append(f'export BEAKER_TOKEN=+B+Vhnbwacnx5t/z')
+
+pre_cmds.append(f'easyapi status')
 cmd = 'python synthetic_rubric_tuning.py     --qa-dir data/scholarqa_cs/src_answers     --test-config data/scholarqa_cs/test_configs_snippets.json     --rubrics --snippets'
 for seed in range(seed_offset, seed_offset+num_seeds):
     for i, values in enumerate(args_prod):
@@ -228,7 +235,8 @@ for seed in range(seed_offset, seed_offset+num_seeds):
         if args.scheduler == 'slurm':
             s.add_job(logfolder, repo, change_dir, cmds, time_hours, False, cores=cpus_per_task, mem=memory, constraint=constraint, exclude=exclude, time_minutes=time_minutes, gpus=0)
         else:
-            s.add_job(logfolder, cmds, 0, False, cores=cpus_per_task, mem=memory, constraint='', exclude='', time_minutes=0, gpus=0)
+            model = args3['model'][i]
+            s.add_job(logfolder, cmds, 0, False, cores=cpus_per_task, mem=memory, constraint='', exclude='', time_minutes=0, gpus=0, description=f'{model}')
         jobs.append((cmds))
 post_cmds = []
 
