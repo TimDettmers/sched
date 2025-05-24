@@ -1,0 +1,2 @@
+name,var,equation
+range, resolved;, f"{var['resolved']/300}"
