@@ -12,7 +12,7 @@ from itertools import product
 from os.path import join
 
 parser = argparse.ArgumentParser(description='Compute script.')
-parser.add_argument('--priority', type=str, default='high')
+parser.add_argument('--priority', type=str, default='normal')
 parser.add_argument('--uuid', type=str, default='')
 parser.add_argument('--gpus', type=int, default=1)
 parser.add_argument('--server_ip', type=str, default='jupiter-cs-aus-199.reviz.ai2.in')
@@ -29,7 +29,7 @@ s = gpuscheduler.GantryScheduler('./config/austin.cfg', cluster=f'ai2/{args.clus
 
 rdm_port = np.random.randint(12200, 12999, 1)[0]
 logfolder = f'{args.model}'
-cores_per_job = 4*args.gpus
+cores_per_job = 10*args.gpus
 mem = 32
 
 home_path = '/data/input/timd'

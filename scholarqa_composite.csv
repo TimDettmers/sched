@@ -1,0 +1,3 @@
+name,var,equation
+95CI_width, upper;lower;, f"{var['upper']-var['lower']}"
+
