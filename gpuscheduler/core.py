@@ -340,7 +340,8 @@ class HyakScheduler(object):
                     lines.append('#SBATCH --gres=gpu:{0}'.format(gpus))
                 else:
                     lines.append('#SBATCH --gpus-per-node={0}'.format(gpus))
-            lines.append('#SBATCH --mem={0}G'.format(mem))
+            if mem is not None:
+                lines.append('#SBATCH --mem={0}G'.format(mem))
             if len(constraint) > 0:
                 lines.append('#SBATCH --constraint={0}'.format(constraint))
             if exclude != '':
