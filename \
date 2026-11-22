@@ -1,0 +1,11 @@
+#!/bin/bash
+
+if [ -z $1 ]
+then
+  USER="timdettmers"
+else
+  USER=$1
+fi
+   
+
+sacct -X -u $USER --format="Elapsed,AllocGres,Jobid,State,Account,Partition,NodeList,Comment"
